@@ -28,9 +28,15 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import com.attendancetracker.data.auth.AuthManager
+import com.attendancetracker.data.auth.BiometricHelper
 import com.attendancetracker.viewmodel.SettingsViewModel
 
 /**
@@ -39,20 +45,32 @@ import com.attendancetracker.viewmodel.SettingsViewModel
  * Allows users to configure:
  * - Google Sheet ID
  * - Notification preferences
+ * - Biometric authentication
  * - Other app settings
  *
  * @param viewModel The SettingsViewModel managing the settings state
  * @param onNavigateBack Callback to navigate back
  * @param onSignOut Callback to sign out the current user
+ * @param authManager Authentication manager for biometric settings
+ * @param biometricHelper Helper for biometric authentication
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     onNavigateBack: () -> Unit,
-    onSignOut: () -> Unit = {}
+    onSignOut: () -> Unit = {},
+    authManager: AuthManager? = null,
+    biometricHelper: BiometricHelper? = null
 ) {
     val settings by viewModel.settings.collectAsState()
+    val context = LocalContext.current
+
+    // Biometric state
+    var biometricEnabled by remember { mutableStateOf(authManager?.isBiometricEnabled() ?: false) }
+    val biometricAvailable = remember {
+        biometricHelper?.canAuthenticateWithBiometrics() == BiometricHelper.BiometricAvailability.Available
+    }
 
     Scaffold(
         topBar = {
@@ -186,6 +204,65 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.size(16.dp))
+
+            // Biometric Authentication Section
+            if (authManager != null && biometricHelper != null) {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "Security",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+
+                        Spacer(modifier = Modifier.size(16.dp))
+
+                        // Biometric toggle
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Biometric Unlock",
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                Text(
+                                    text = if (biometricAvailable) {
+                                        "Use fingerprint or face to unlock"
+                                    } else {
+                                        "Biometric authentication not available"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = biometricEnabled,
+                                enabled = biometricAvailable,
+                                onCheckedChange = { enabled ->
+                                    biometricEnabled = enabled
+                                    authManager.setBiometricEnabled(enabled)
+                                    android.widget.Toast.makeText(
+                                        context,
+                                        if (enabled) "Biometric unlock enabled" else "Biometric unlock disabled",
+                                        android.widget.Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.size(16.dp))
+            }
 
             // About Section
             Card(

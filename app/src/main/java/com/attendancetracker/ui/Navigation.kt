@@ -20,6 +20,9 @@ private const val ROUTE_HISTORY = "history"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_MEMBERS = "members"
 
+import com.attendancetracker.data.auth.AuthManager
+import com.attendancetracker.data.auth.BiometricHelper
+
 /**
  * Main navigation setup for the Attendance Tracker app.
  *
@@ -32,12 +35,16 @@ private const val ROUTE_MEMBERS = "members"
  * @param viewModel The AttendanceViewModel shared across screens
  * @param preferencesRepository Repository for settings
  * @param onSignOut Callback to sign out the current user
+ * @param authManager Authentication manager for session handling
+ * @param biometricHelper Helper for biometric authentication
  */
 @Composable
 fun Navigation(
     viewModel: AttendanceViewModel,
     preferencesRepository: PreferencesRepository,
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    authManager: AuthManager,
+    biometricHelper: BiometricHelper
 ) {
     val navController = rememberNavController()
     val settingsViewModel = SettingsViewModel(preferencesRepository)
@@ -79,7 +86,9 @@ fun Navigation(
                 onNavigateBack = {
                     navController.popBackStack()
                 },
-                onSignOut = onSignOut
+                onSignOut = onSignOut,
+                authManager = authManager,
+                biometricHelper = biometricHelper
             )
         }
 

@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
 /**
@@ -105,16 +106,25 @@ class AttendanceViewModel(
      */
     fun loadData() {
         viewModelScope.launch {
-            val result = repository.loadAllData()
+            try {
+                val result = repository.loadAllData()
 
-            if (result.isSuccess) {
-                // Wait for StateFlows to actually update with data
-                // This ensures the UI doesn't try to populate before data is ready
-                members.first { it.isNotEmpty() }
-                attendanceRecords.first()  // Wait for first emission (may be empty if no records)
+                if (result.isSuccess) {
+                    // Wait for StateFlows to actually update with data
+                    // This ensures the UI doesn't try to populate before data is ready
+                    withTimeoutOrNull(10000) { // 10 second timeout
+                        members.first { it.isNotEmpty() }
+                    }
+                    attendanceRecords.first()  // Wait for first emission (may be empty if no records)
 
-                // Pre-populate selected members with today's attendance
-                loadTodayAttendance()
+                    // Pre-populate selected members with today's attendance
+                    loadTodayAttendance()
+                } else {
+                    // Error already handled by repository
+                    android.util.Log.e("AttendanceViewModel", "Failed to load data: ${result.exceptionOrNull()}")
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("AttendanceViewModel", "Error loading data", e)
             }
         }
     }
