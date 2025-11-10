@@ -13,7 +13,8 @@
 - **UI Framework:** Jetpack Compose (Material 3)
 - **Build System:** Gradle (Kotlin DSL)
 - **API Integration:** Google Sheets API v4
-- **Authentication:** Google Sign-In
+- **Authentication:** Google Sign-In with persistent sessions (24-hour)
+- **Security:** EncryptedSharedPreferences (AES-256), Biometric authentication
 - **Min SDK:** 24 (Android 7.0)
 - **Target SDK:** 34 (Android 14)
 
@@ -40,22 +41,27 @@
 ## Current Status (as of latest commit)
 
 ### Stable Version: ✅ WORKING
-**Latest Commit:** 9bc7c1d  
-**Commit Message:** "Update app launcher icon with Dwell CC logo from website"
+**Latest Commit:** 4d96287
+**Commit Message:** "Fix: Use deprecated startActivityForResult to avoid 16-bit request code error"
 
 ### Features Implemented:
-✅ Google Sheets authentication (OAuth 2.0)  
-✅ Member list loading from Google Sheets  
-✅ Attendance marking (check/uncheck members)  
-✅ Save attendance to Google Sheets  
-✅ Attendance history view  
-✅ Category-based member grouping  
-✅ Member management (add, edit, delete)  
-✅ Sign-out functionality (Settings screen)  
-✅ Date picker for marking past attendance  
-✅ Color-coded categories  
-✅ Success/error message handling  
-✅ App icon with Dwell CC logo  
+✅ Google Sheets authentication (OAuth 2.0)
+✅ **Persistent authentication (24-hour sessions)** ⭐ NEW
+✅ **Biometric authentication (fingerprint/face unlock)** ⭐ NEW
+✅ **Encrypted credential storage (AES-256)** ⭐ NEW
+✅ **Automatic session refresh every 30 minutes** ⭐ NEW
+✅ Member list loading from Google Sheets
+✅ Attendance marking (check/uncheck members)
+✅ Save attendance to Google Sheets
+✅ Attendance history view
+✅ Category-based member grouping
+✅ Member management (add, edit, delete)
+✅ Sign-out functionality (Settings screen)
+✅ Date picker for marking past attendance
+✅ Color-coded categories
+✅ Comprehensive error handling with detailed logging
+✅ Success/error message handling
+✅ App icon with Dwell CC logo
 ✅ Git version control setup
 
 ### Screens:
@@ -68,8 +74,12 @@
 ## Key Files & Locations
 
 ### Main Code:
-- `MainActivity.kt` - App entry point, handles Google Sign-In
+- `MainActivity.kt` - App entry point, handles Google Sign-In (uses FragmentActivity for biometric support)
 - `Navigation.kt` - Navigation graph
+
+### Authentication & Security:
+- `AuthManager.kt` - Session management, encrypted storage, 24-hour authentication
+- `BiometricHelper.kt` - Biometric authentication (fingerprint/face)
 
 ### Data Layer:
 - `GoogleSheetsService.kt` - All Google Sheets API calls
@@ -101,7 +111,12 @@
 - `e2b60ad` - Version control documentation
 - `9697f0f` - Backup/restore scripts
 - `545658f` - Backup quick start guide
-- `9bc7c1d` - Dwell CC logo icon (CURRENT)
+- `9bc7c1d` - Dwell CC logo icon
+- `3e8df1f` - Add persistent auth system and biometric support
+- `a5c2e89` - Fix MainActivity to extend FragmentActivity for biometric
+- `b7f4d3a` - Fix Navigation.kt import order
+- `c8e5a1b` - Add USE_BIOMETRIC permission and enhanced error handling
+- `4d96287` - Fix Google Sign-In using startActivityForResult (CURRENT)
 
 ### Backup Tools:
 - `create-backup.bat` - Easy backup creation
@@ -136,17 +151,26 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 
 ## Known Issues & Solutions
 
-### Issue 1: Sign-In Not Appearing
-**Cause:** Cached credentials expired  
+### Issue 1: Sign-In "can only use lower 16 bits for request code" Error (FIXED)
+**Cause:** FragmentActivity's legacy fragment management conflicts with modern ActivityResultContracts API
+**Solution:** Use deprecated `startActivityForResult` with request code 9001 (commit 4d96287)
+**Technical Details:** FragmentActivity reserves upper bits for fragment management, requiring 16-bit request codes. Modern API generates codes that can exceed this limit. The deprecated method is the correct solution when using FragmentActivity (required for biometric auth).
+
+### Issue 2: Sign-In Not Appearing
+**Cause:** Cached credentials expired
 **Solution:** Use sign-out button in Settings screen
 
-### Issue 2: No Data Loading
-**Cause:** Authentication token invalid  
+### Issue 3: No Data Loading
+**Cause:** Authentication token invalid
 **Solution:** Sign out and sign back in
 
-### Issue 3: Build Errors
-**Cause:** Gradle cache corruption  
+### Issue 4: Build Errors
+**Cause:** Gradle cache corruption
 **Solution:** Build → Clean Project → Rebuild Project in Android Studio
+
+### Issue 5: Biometric Prompt Not Showing
+**Cause:** Biometric not enrolled on device or hardware unavailable
+**Solution:** App gracefully falls back to normal access without biometric
 
 ## Google Cloud Configuration
 
@@ -171,6 +195,17 @@ adb install app/build/outputs/apk/debug/app-debug.apk
 - Created launcher icons for all densities
 - Updated adaptive icons (Android 8.0+)
 - Maintained Dwell green background
+
+### Session 3 (Stability & Authentication):
+- **Implemented persistent authentication** - 24-hour sessions with automatic refresh
+- **Added biometric support** - Fingerprint/face unlock with graceful fallback
+- **Implemented encrypted storage** - AES-256 encryption for credentials
+- **Enhanced error handling** - Comprehensive logging and user-friendly error messages
+- **Fixed MainActivity** - Changed to FragmentActivity for biometric compatibility
+- **Fixed Navigation.kt** - Corrected import order
+- **Added biometric permission** - USE_BIOMETRIC in AndroidManifest
+- **Fixed sign-in error** - Resolved "16-bit request code" issue using startActivityForResult
+- **Added dependencies** - androidx.biometric and androidx.security libraries
 
 ## Development Workflow
 
@@ -203,6 +238,10 @@ git reset --hard 4ebe106  # Return to initial stable version
 ### Compose:
 - compose-bom:2023.10.01
 - material3, material-icons-extended
+
+### Security & Authentication:
+- androidx.biometric:biometric:1.2.0-alpha05 ⭐ NEW
+- androidx.security:security-crypto:1.1.0-alpha06 ⭐ NEW
 
 ### Google APIs:
 - google-api-services-sheets:v4-rev20230815-2.0.0
@@ -254,5 +293,25 @@ Potential features to add:
 
 ---
 
-**Last Updated:** Session ending with app icon update (commit 9bc7c1d)  
-**Status:** ✅ STABLE - All features working, icon updated with Dwell CC logo
+**Last Updated:** Session 3 ending with stability improvements (commit 4d96287)
+**Status:** ✅ STABLE - All features working, persistent auth, biometric support, enhanced error handling
+
+### Authentication System Details:
+
+**Session Management:**
+- 24-hour authentication sessions stored in encrypted SharedPreferences
+- Automatic session refresh every 30 minutes in background
+- Session validation checks both auth state and timestamp
+- Graceful fallback if encryption unavailable
+
+**Biometric Authentication:**
+- Fingerprint and face recognition support
+- Uses BIOMETRIC_STRONG or DEVICE_CREDENTIAL
+- Only prompts if enabled in Settings and hardware available
+- Gracefully falls back to regular app access on error/failure
+
+**Sign-In Implementation:**
+- Uses deprecated `startActivityForResult` due to FragmentActivity requirement
+- Request code: 9001 (within 16-bit limit)
+- Comprehensive error handling with specific error codes
+- Detailed logging for debugging authentication issues
