@@ -69,6 +69,8 @@ class MainActivity : FragmentActivity() {
                     val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
                     handleSignInResult(task)
                 } else {
+                    // Sign-in cancelled or failed
+                    Toast.makeText(this, "Sign-in cancelled", Toast.LENGTH_SHORT).show()
                     showSignInScreen()
                 }
             }
@@ -98,18 +100,27 @@ class MainActivity : FragmentActivity() {
         val hasValidSession = authManager.isAuthenticated()
         val hasValidGoogleAccount = authManager.hasValidGoogleAccount()
 
+        android.util.Log.d(
+            "MainActivity",
+            "Auth state - Session: $hasValidSession, GoogleAccount: $hasValidGoogleAccount, Account: ${account?.email}"
+        )
+
         when {
             // User has valid session and Google account
             hasValidSession && hasValidGoogleAccount && account != null -> {
                 val email = account.email ?: authManager.getUserEmail()
                 if (email != null) {
+                    android.util.Log.d("MainActivity", "Valid session found, email: $email")
                     // Check if biometric is enabled
                     if (authManager.isBiometricEnabled() && canUseBiometric()) {
+                        android.util.Log.d("MainActivity", "Showing biometric prompt")
                         showBiometricPrompt(email)
                     } else {
+                        android.util.Log.d("MainActivity", "Initializing app directly")
                         initializeApp(email)
                     }
                 } else {
+                    android.util.Log.d("MainActivity", "No email found, showing sign-in screen")
                     showSignInScreen()
                 }
             }
@@ -117,15 +128,18 @@ class MainActivity : FragmentActivity() {
             hasValidGoogleAccount && account != null -> {
                 val email = account.email
                 if (email != null) {
+                    android.util.Log.d("MainActivity", "Restoring session for: $email")
                     // Restore session
                     authManager.saveAuthState(email)
                     initializeApp(email)
                 } else {
+                    android.util.Log.d("MainActivity", "No email in expired session, showing sign-in screen")
                     showSignInScreen()
                 }
             }
             // No valid authentication
             else -> {
+                android.util.Log.d("MainActivity", "No valid authentication, showing sign-in screen")
                 showSignInScreen()
             }
         }
@@ -144,13 +158,17 @@ class MainActivity : FragmentActivity() {
                 authManager.refreshSession()
                 initializeApp(email)
             },
-            onError = { errorCode, errorString ->
-                Toast.makeText(this, "Authentication error: $errorString", Toast.LENGTH_SHORT).show()
-                // Fall back to normal sign-in
-                showSignInScreen()
+            onError = { _, errorString ->
+                Toast.makeText(this, "Biometric error: $errorString", Toast.LENGTH_SHORT).show()
+                // User has valid Google account, just skip biometric
+                authManager.refreshSession()
+                initializeApp(email)
             },
             onFailure = {
-                Toast.makeText(this, "Authentication failed", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Biometric failed, please try again", Toast.LENGTH_SHORT).show()
+                // User has valid Google account, just skip biometric
+                authManager.refreshSession()
+                initializeApp(email)
             }
         )
     }
@@ -262,8 +280,14 @@ class MainActivity : FragmentActivity() {
      * Starts the Google Sign-In flow.
      */
     private fun startSignIn() {
-        val signInIntent = googleSignInClient.signInIntent
-        signInLauncher.launch(signInIntent)
+        try {
+            val signInIntent = googleSignInClient.signInIntent
+            signInLauncher.launch(signInIntent)
+            android.util.Log.d("MainActivity", "Sign-in intent launched")
+        } catch (e: Exception) {
+            e.printStackTrace()
+            Toast.makeText(this, "Error starting sign-in: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     /**
@@ -271,27 +295,49 @@ class MainActivity : FragmentActivity() {
      */
     private fun handleSignInResult(task: com.google.android.gms.tasks.Task<GoogleSignInAccount>) {
         try {
+            android.util.Log.d("MainActivity", "Handling sign-in result")
             val account = task.getResult(ApiException::class.java)
             if (account != null && account.email != null) {
                 val email = account.email!!
+                android.util.Log.d("MainActivity", "Sign-in successful: $email")
+
+                // Check if we have the required scope
+                if (!hasRequiredScopes(account)) {
+                    android.util.Log.e("MainActivity", "Missing required Google Sheets scope")
+                    Toast.makeText(
+                        this,
+                        "Missing Google Sheets permission. Please grant access.",
+                        Toast.LENGTH_LONG
+                    ).show()
+                    // Try signing in again to request scope
+                    googleSignInClient.signOut()
+                    showSignInScreen()
+                    return
+                }
+
                 initializeApp(email)
                 Toast.makeText(this, "Signed in as $email", Toast.LENGTH_SHORT).show()
             } else {
+                android.util.Log.e("MainActivity", "Sign-in failed: No account information")
                 Toast.makeText(this, "Sign-in failed: No account information", Toast.LENGTH_SHORT).show()
                 showSignInScreen()
             }
         } catch (e: ApiException) {
             // Sign-in failed
             e.printStackTrace()
+            android.util.Log.e("MainActivity", "Sign-in ApiException: ${e.statusCode} - ${e.message}")
             val errorMessage = when (e.statusCode) {
                 12501 -> "Sign-in cancelled"
                 12500 -> "Sign-in error. Please try again"
-                else -> "Sign-in failed: ${e.message}"
+                10 -> "Developer error - Check OAuth configuration"
+                7 -> "Network error - Check internet connection"
+                else -> "Sign-in failed (Code ${e.statusCode}): ${e.message}"
             }
             Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
             showSignInScreen()
         } catch (e: Exception) {
             e.printStackTrace()
+            android.util.Log.e("MainActivity", "Sign-in unexpected error: ${e.message}", e)
             Toast.makeText(this, "Unexpected error: ${e.message}", Toast.LENGTH_LONG).show()
             showSignInScreen()
         }
