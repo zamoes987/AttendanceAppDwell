@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.attendancetracker.data.models.AppSettings
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 /**
@@ -66,12 +67,11 @@ class PreferencesRepository(private val context: Context) {
 
     /**
      * Gets the current spreadsheet ID.
+     * FIXED: Use first() instead of broken collect {} pattern.
      */
     suspend fun getSpreadsheetId(): String {
-        var id = ""
-        context.dataStore.data.map { preferences ->
-            id = preferences[SPREADSHEET_ID] ?: ""
-        }.collect {}
-        return id
+        return context.dataStore.data.map { preferences ->
+            preferences[SPREADSHEET_ID] ?: ""
+        }.first()
     }
 }

@@ -159,6 +159,8 @@ class SheetsRepository(
      * Updates the local cache after saving attendance.
      *
      * This ensures the UI reflects changes immediately without reloading from the sheet.
+     * FIXED: Creates new immutable objects instead of mutating existing ones to prevent
+     * ConcurrentModificationException in multi-threaded environment.
      */
     private fun updateLocalAttendanceCache(
         dateString: String,
@@ -167,37 +169,54 @@ class SheetsRepository(
     ) {
         val membersList = _members.value
 
-        // Update member attendance histories
-        membersList.forEach { member ->
-            member.markAttendance(dateString, member.id in presentMemberIds)
+        // Create NEW member objects with updated attendance history (immutable pattern)
+        val updatedMembers = membersList.map { member ->
+            val isPresent = member.id in presentMemberIds
+            // Create new attendance history map with the updated value
+            val newHistory = member.attendanceHistory.toMutableMap().apply {
+                put(dateString, isPresent)
+            }
+            // Return new Member instance with updated history
+            member.copy(attendanceHistory = newHistory)
         }
+
+        // Update members StateFlow with new list
+        _members.value = updatedMembers
 
         // Find or create attendance record
-        val existingRecords = _attendanceRecords.value.toMutableList()
+        val existingRecords = _attendanceRecords.value
         val existingRecordIndex = existingRecords.indexOfFirst { it.dateString == dateString }
 
-        val record = if (existingRecordIndex >= 0) {
-            existingRecords[existingRecordIndex]
-        } else {
-            AttendanceRecord(
-                date = date,
-                dateString = dateString,
-                columnIndex = -1 // Column index doesn't matter for cache
-            ).also { existingRecords.add(it) }
-        }
+        // Create NEW AttendanceRecord instead of mutating existing one
+        val newRecord = AttendanceRecord(
+            date = date,
+            dateString = dateString,
+            columnIndex = if (existingRecordIndex >= 0) existingRecords[existingRecordIndex].columnIndex else -1,
+            presentMembers = presentMemberIds.toMutableSet(), // New mutable set
+            categoryTotals = mutableMapOf() // New mutable map
+        )
 
-        // Clear and rebuild the record
-        record.presentMembers.clear()
-        record.categoryTotals.clear()
-
-        membersList.forEach { member ->
+        // Populate category totals
+        updatedMembers.forEach { member ->
             if (member.id in presentMemberIds) {
-                record.markPresent(member.id, member.category)
+                newRecord.categoryTotals[member.category] =
+                    (newRecord.categoryTotals[member.category] ?: 0) + 1
             }
         }
 
-        // Update state
-        _attendanceRecords.value = existingRecords.sortedBy { it.date }
+        // Create new records list with the updated record
+        val updatedRecords = if (existingRecordIndex >= 0) {
+            // Replace existing record
+            existingRecords.toMutableList().apply {
+                set(existingRecordIndex, newRecord)
+            }
+        } else {
+            // Add new record
+            existingRecords + newRecord
+        }
+
+        // Update state with new sorted list
+        _attendanceRecords.value = updatedRecords.sortedBy { it.date }
     }
 
     /**

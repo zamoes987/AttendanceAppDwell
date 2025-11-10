@@ -1,10 +1,15 @@
 package com.attendancetracker.data.api
 
 import android.content.Context
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
+import android.os.Build
 import com.attendancetracker.data.models.AttendanceRecord
 import com.attendancetracker.data.models.Category
 import com.attendancetracker.data.models.Member
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
+import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
+import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
 import com.google.api.services.sheets.v4.Sheets
@@ -69,15 +74,47 @@ class GoogleSheetsService(
     /**
      * Google Sheets API service client.
      * Lazy-loaded when first accessed.
+     *
+     * ISSUE #3 FIX: Configured with 30-second timeouts to prevent indefinite hangs
      */
     private val sheetsService: Sheets by lazy {
+        val transport = NetHttpTransport()
+
+        val requestInitializer = HttpRequestInitializer { request ->
+            credential.initialize(request)
+            request.connectTimeout = 30_000 // 30 seconds
+            request.readTimeout = 30_000    // 30 seconds
+        }
+
         Sheets.Builder(
-            NetHttpTransport(),
+            transport,
             GsonFactory.getDefaultInstance(),
-            credential
+            requestInitializer
         )
             .setApplicationName("Attendance Tracker")
             .build()
+    }
+
+    /**
+     * Checks if network connectivity is available.
+     *
+     * ISSUE #2 FIX: Network availability check to prevent cryptic offline errors
+     *
+     * @return true if internet connection is available, false otherwise
+     */
+    private fun isNetworkAvailable(): Boolean {
+        val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val network = connectivityManager.activeNetwork ?: return false
+            val capabilities = connectivityManager.getNetworkCapabilities(network) ?: return false
+            return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+        } else {
+            @Suppress("DEPRECATION")
+            val networkInfo = connectivityManager.activeNetworkInfo ?: return false
+            @Suppress("DEPRECATION")
+            return networkInfo.isConnected
+        }
     }
 
     /**
@@ -89,6 +126,11 @@ class GoogleSheetsService(
      * @return Result containing list of Member objects, or failure with exception
      */
     suspend fun readMembers(): Result<List<Member>> = withContext(Dispatchers.IO) {
+        // ISSUE #2 FIX: Check network connectivity before API call
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
         try {
             val range = "$currentYearTab!B:C"
             val response = sheetsService.spreadsheets().values()
@@ -122,17 +164,22 @@ class GoogleSheetsService(
                 val category = Category.fromAbbreviation(categoryAbbr) ?: continue
 
                 // Create member with 1-indexed row number (row 0 is header, so rowIndex + 1)
+                // Note: Using mutableMapOf() for attendanceHistory to allow mutations during data loading
                 val member = Member(
                     id = "${currentYearTab}_${rowIndex + 1}",
                     name = name,
                     category = category,
-                    rowIndex = rowIndex + 1 // Google Sheets uses 1-based indexing
+                    rowIndex = rowIndex + 1, // Google Sheets uses 1-based indexing
+                    attendanceHistory = mutableMapOf() // Mutable for initial loading phase
                 )
 
                 members.add(member)
             }
 
             Result.success(members)
+        } catch (e: UserRecoverableAuthIOException) {
+            // ISSUE #1 FIX: Handle OAuth token expiration
+            Result.failure(Exception("Authentication expired. Please sign in again."))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -152,6 +199,11 @@ class GoogleSheetsService(
         dateString: String,
         members: List<Member>
     ): Result<AttendanceRecord?> = withContext(Dispatchers.IO) {
+        // ISSUE #2 FIX: Check network connectivity before API call
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
         try {
             // First, read the header row to find the date column
             val headerRange = "$currentYearTab!1:1"
@@ -207,6 +259,9 @@ class GoogleSheetsService(
             }
 
             Result.success(record)
+        } catch (e: UserRecoverableAuthIOException) {
+            // ISSUE #1 FIX: Handle OAuth token expiration
+            Result.failure(Exception("Authentication expired. Please sign in again."))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -223,6 +278,11 @@ class GoogleSheetsService(
      */
     suspend fun readAllAttendance(members: List<Member>): Result<List<AttendanceRecord>> =
         withContext(Dispatchers.IO) {
+            // ISSUE #2 FIX: Check network connectivity before API call
+            if (!isNetworkAvailable()) {
+                return@withContext Result.failure(Exception("No internet connection"))
+            }
+
             try {
                 // Read the entire data range
                 val range = "$currentYearTab!A1:ZZ"
@@ -282,6 +342,9 @@ class GoogleSheetsService(
 
                 // Sort records by date
                 Result.success(attendanceRecords.sortedBy { it.date })
+            } catch (e: UserRecoverableAuthIOException) {
+                // ISSUE #1 FIX: Handle OAuth token expiration
+                Result.failure(Exception("Authentication expired. Please sign in again."))
             } catch (e: Exception) {
                 Result.failure(e)
             }
@@ -303,6 +366,11 @@ class GoogleSheetsService(
         presentMemberIds: Set<String>,
         allMembers: List<Member>
     ): Result<Unit> = withContext(Dispatchers.IO) {
+        // ISSUE #2 FIX: Check network connectivity before API call
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
         try {
             // Read header row to check if date column exists
             val headerRange = "$currentYearTab!1:1"
@@ -324,22 +392,24 @@ class GoogleSheetsService(
                 (targetDate != null && AttendanceRecord.parseDateFromSheet(cellString) == targetDate)
             }
 
+            // ISSUE #4 FIX: Combine header and data writes into SINGLE batch operation for atomicity
+            val updates = mutableListOf<ValueRange>()
+
             if (columnIndex == -1) {
                 // Date column doesn't exist, append it to header
                 columnIndex = headerRow.size
                 headerRow.add(dateString)
 
-                // Write updated header
-                val headerValueRange = ValueRange().setValues(listOf(headerRow))
-                sheetsService.spreadsheets().values()
-                    .update(SPREADSHEET_ID, headerRange, headerValueRange)
-                    .setValueInputOption("RAW")
-                    .execute()
+                // Add header update to batch
+                updates.add(
+                    ValueRange()
+                        .setRange(headerRange)
+                        .setValues(listOf(headerRow))
+                )
             }
 
-            // Prepare batch update for attendance column
+            // Prepare attendance column data
             val columnLetter = indexToColumnLetter(columnIndex)
-            val updates = mutableListOf<ValueRange>()
 
             // Create attendance values for all members, sorted by row index
             val sortedMembers = allMembers.sortedBy { it.rowIndex }
@@ -357,7 +427,7 @@ class GoogleSheetsService(
                     .setValues(attendanceValues)
             )
 
-            // Execute batch update
+            // Execute SINGLE atomic batch update for both header and data
             val batchRequest = BatchUpdateValuesRequest()
                 .setValueInputOption("RAW")
                 .setData(updates)
@@ -367,6 +437,9 @@ class GoogleSheetsService(
                 .execute()
 
             Result.success(Unit)
+        } catch (e: UserRecoverableAuthIOException) {
+            // ISSUE #1 FIX: Handle OAuth token expiration
+            Result.failure(Exception("Authentication expired. Please sign in again."))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -401,6 +474,10 @@ class GoogleSheetsService(
      * @return Result indicating success or failure
      */
     suspend fun addMember(name: String, category: Category): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
         try {
             // Read columns B and C to find where to insert
             val readRange = "$currentYearTab!B:C"
@@ -502,6 +579,8 @@ class GoogleSheetsService(
                 .execute()
 
             Result.success(Unit)
+        } catch (e: UserRecoverableAuthIOException) {
+            Result.failure(Exception("Authentication expired. Please sign in again."))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -518,6 +597,10 @@ class GoogleSheetsService(
      * @return Result indicating success or failure
      */
     suspend fun updateMember(member: Member, newName: String, newCategory: Category): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
         try {
             // Update the specific row (rowIndex is already 1-based from readMembers)
             val rowNumber = member.rowIndex
@@ -534,6 +617,8 @@ class GoogleSheetsService(
                 .execute()
 
             Result.success(Unit)
+        } catch (e: UserRecoverableAuthIOException) {
+            Result.failure(Exception("Authentication expired. Please sign in again."))
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -549,13 +634,17 @@ class GoogleSheetsService(
      * @return Result indicating success or failure
      */
     suspend fun deleteMember(member: Member): Result<Unit> = withContext(Dispatchers.IO) {
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
         try {
             // First, get the sheet ID for the current year tab
             val spreadsheet = sheetsService.spreadsheets()
                 .get(SPREADSHEET_ID)
                 .execute()
 
-            val sheetId = spreadsheet.sheets.find {
+            val sheetId = spreadsheet.sheets?.find {
                 it.properties.title == currentYearTab
             }?.properties?.sheetId ?: return@withContext Result.failure(
                 Exception("Sheet '$currentYearTab' not found")
@@ -584,6 +673,8 @@ class GoogleSheetsService(
                 .execute()
 
             Result.success(Unit)
+        } catch (e: UserRecoverableAuthIOException) {
+            Result.failure(Exception("Authentication expired. Please sign in again."))
         } catch (e: Exception) {
             Result.failure(e)
         }

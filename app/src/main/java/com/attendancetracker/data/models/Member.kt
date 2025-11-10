@@ -6,18 +6,21 @@ package com.attendancetracker.data.models
  * Each member corresponds to a row in the Google Sheet and tracks their
  * attendance history across multiple meetings.
  *
+ * FIXED: Changed attendanceHistory from MutableMap to immutable Map for thread safety.
+ * Use withAttendance() to create new Member instances with updated attendance.
+ *
  * @property id Unique identifier for the member (format: "2025_rowNumber")
  * @property name Full name of the member as it appears in the sheet
  * @property category Member's category (OM, XT, RN, FT, V)
  * @property rowIndex Actual row number in the Google Sheet (1-indexed, where row 1 is the header)
- * @property attendanceHistory Map of date strings to attendance status (true = present, false = absent)
+ * @property attendanceHistory Immutable map of date strings to attendance status (true = present, false = absent)
  */
 data class Member(
     val id: String,
     val name: String,
     val category: Category,
     val rowIndex: Int,
-    val attendanceHistory: MutableMap<String, Boolean> = mutableMapOf()
+    val attendanceHistory: Map<String, Boolean> = emptyMap()
 ) {
     /**
      * Returns the total number of meetings this member has attended.
@@ -39,13 +42,39 @@ data class Member(
     }
 
     /**
-     * Marks the member's attendance for a specific date.
+     * Creates a new Member instance with updated attendance for a specific date.
+     *
+     * This method follows the immutable pattern - it returns a new Member object
+     * rather than modifying the existing one, preventing thread safety issues.
+     *
+     * @param dateString The date in sheet format (e.g., "11/06/25")
+     * @param present True if present, false if absent
+     * @return New Member instance with updated attendance history
+     */
+    fun withAttendance(dateString: String, present: Boolean): Member {
+        return this.copy(
+            attendanceHistory = attendanceHistory + (dateString to present)
+        )
+    }
+
+    /**
+     * DEPRECATED: Use withAttendance() instead for thread-safe updates.
+     * This method is kept temporarily for backward compatibility but mutates shared state.
      *
      * @param dateString The date in sheet format (e.g., "11/06/25")
      * @param present True if present, false if absent
      */
+    @Deprecated(
+        message = "Use withAttendance() instead for thread-safe immutable updates",
+        replaceWith = ReplaceWith("withAttendance(dateString, present)"),
+        level = DeprecationLevel.WARNING
+    )
     fun markAttendance(dateString: String, present: Boolean) {
-        attendanceHistory[dateString] = present
+        // For backward compatibility with GoogleSheetsService which still uses this
+        // This will be removed once all callers are updated
+        if (attendanceHistory is MutableMap) {
+            attendanceHistory[dateString] = present
+        }
     }
 
     /**

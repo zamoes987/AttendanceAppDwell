@@ -9,7 +9,9 @@
       "Bash(git commit:*)",
       "WebFetch(domain:www.dwellcc.org)",
       "Bash(curl:*)",
-      "Bash(powershell.exe:*)"
+      "Bash(powershell.exe:*)",
+      "Bash(find:*)",
+      "Bash(./gradlew dependencies:*)"
     ],
     "deny": [],
     "ask": []

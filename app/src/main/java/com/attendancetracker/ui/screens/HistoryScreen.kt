@@ -75,7 +75,7 @@ fun HistoryScreen(
         // Remove duplicate dates by grouping and taking the first of each date
         attendanceRecords
             .groupBy { it.date }
-            .map { (_, records) -> records.first() }
+            .mapNotNull { (_, records) -> records.firstOrNull() }
             .sortedByDescending { it.date }
             .map { record ->
                 AttendanceSummary(

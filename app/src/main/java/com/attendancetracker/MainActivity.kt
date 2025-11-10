@@ -10,7 +10,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import com.attendancetracker.data.auth.AuthManager
 import com.attendancetracker.data.auth.BiometricHelper
 import com.attendancetracker.data.repository.PreferencesRepository
@@ -25,8 +27,11 @@ import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.android.gms.common.api.ApiException
 import com.google.android.gms.common.api.Scope
+import com.google.android.gms.common.ConnectionResult
+import com.google.android.gms.common.GoogleApiAvailability
 import com.google.api.services.sheets.v4.SheetsScopes
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
 /**
@@ -55,6 +60,11 @@ class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Check Google Play Services availability
+        if (!isGooglePlayServicesAvailable()) {
+            return
+        }
 
         try {
             // Initialize managers
@@ -101,27 +111,37 @@ class MainActivity : FragmentActivity() {
         val hasValidSession = authManager.isAuthenticated()
         val hasValidGoogleAccount = authManager.hasValidGoogleAccount()
 
-        android.util.Log.d(
-            "MainActivity",
-            "Auth state - Session: $hasValidSession, GoogleAccount: $hasValidGoogleAccount, Account: ${account?.email}"
-        )
+        if (BuildConfig.DEBUG) {
+            android.util.Log.d(
+                "MainActivity",
+                "Auth state - Session: $hasValidSession, GoogleAccount: $hasValidGoogleAccount"
+            )
+        }
 
         when {
             // User has valid session and Google account
             hasValidSession && hasValidGoogleAccount && account != null -> {
                 val email = account.email ?: authManager.getUserEmail()
                 if (email != null) {
-                    android.util.Log.d("MainActivity", "Valid session found, email: $email")
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("MainActivity", "Valid session found")
+                    }
                     // Check if biometric is enabled
                     if (authManager.isBiometricEnabled() && canUseBiometric()) {
-                        android.util.Log.d("MainActivity", "Showing biometric prompt")
+                        if (BuildConfig.DEBUG) {
+                            android.util.Log.d("MainActivity", "Showing biometric prompt")
+                        }
                         showBiometricPrompt(email)
                     } else {
-                        android.util.Log.d("MainActivity", "Initializing app directly")
+                        if (BuildConfig.DEBUG) {
+                            android.util.Log.d("MainActivity", "Initializing app directly")
+                        }
                         initializeApp(email)
                     }
                 } else {
-                    android.util.Log.d("MainActivity", "No email found, showing sign-in screen")
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("MainActivity", "No email found, showing sign-in screen")
+                    }
                     showSignInScreen()
                 }
             }
@@ -129,18 +149,24 @@ class MainActivity : FragmentActivity() {
             hasValidGoogleAccount && account != null -> {
                 val email = account.email
                 if (email != null) {
-                    android.util.Log.d("MainActivity", "Restoring session for: $email")
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("MainActivity", "Restoring session")
+                    }
                     // Restore session
                     authManager.saveAuthState(email)
                     initializeApp(email)
                 } else {
-                    android.util.Log.d("MainActivity", "No email in expired session, showing sign-in screen")
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("MainActivity", "No email in expired session, showing sign-in screen")
+                    }
                     showSignInScreen()
                 }
             }
             // No valid authentication
             else -> {
-                android.util.Log.d("MainActivity", "No valid authentication, showing sign-in screen")
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d("MainActivity", "No valid authentication, showing sign-in screen")
+                }
                 showSignInScreen()
             }
         }
@@ -182,6 +208,27 @@ class MainActivity : FragmentActivity() {
             BiometricHelper.BiometricAvailability.Available -> true
             else -> false
         }
+    }
+
+    /**
+     * Checks if Google Play Services is available and up-to-date.
+     */
+    private fun isGooglePlayServicesAvailable(): Boolean {
+        val apiAvailability = GoogleApiAvailability.getInstance()
+        val resultCode = apiAvailability.isGooglePlayServicesAvailable(this)
+        if (resultCode != ConnectionResult.SUCCESS) {
+            if (apiAvailability.isUserResolvableError(resultCode)) {
+                apiAvailability.getErrorDialog(this, resultCode, 9000)?.show()
+            } else {
+                Toast.makeText(
+                    this,
+                    "This device doesn't support Google Play Services",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+            return false
+        }
+        return true
     }
 
     /**
@@ -244,9 +291,16 @@ class MainActivity : FragmentActivity() {
 
             // Refresh session in background every 30 minutes
             lifecycleScope.launch {
-                while (true) {
-                    delay(30 * 60 * 1000L) // 30 minutes
-                    authManager.refreshSession()
+                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                    while (isActive && authManager.isAuthenticated()) {
+                        try {
+                            delay(30 * 60 * 1000L) // 30 minutes
+                            authManager.refreshSession()
+                        } catch (e: Exception) {
+                            android.util.Log.e("MainActivity", "Session refresh failed", e)
+                            break // Exit loop on error
+                        }
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -282,10 +336,16 @@ class MainActivity : FragmentActivity() {
      */
     @Suppress("DEPRECATION")
     private fun startSignIn() {
+        if (!isGooglePlayServicesAvailable()) {
+            return
+        }
+
         try {
             val signInIntent = googleSignInClient.signInIntent
             startActivityForResult(signInIntent, RC_SIGN_IN)
-            android.util.Log.d("MainActivity", "Sign-in intent launched with startActivityForResult")
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("MainActivity", "Sign-in intent launched with startActivityForResult")
+            }
         } catch (e: Exception) {
             e.printStackTrace()
             android.util.Log.e("MainActivity", "Error starting sign-in", e)
@@ -298,11 +358,14 @@ class MainActivity : FragmentActivity() {
      */
     private fun handleSignInResult(task: com.google.android.gms.tasks.Task<GoogleSignInAccount>) {
         try {
-            android.util.Log.d("MainActivity", "Handling sign-in result")
+            if (BuildConfig.DEBUG) {
+                android.util.Log.d("MainActivity", "Handling sign-in result")
+            }
             val account = task.getResult(ApiException::class.java)
-            if (account != null && account.email != null) {
-                val email = account.email!!
-                android.util.Log.d("MainActivity", "Sign-in successful: $email")
+            account?.email?.let { email ->
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d("MainActivity", "Sign-in successful")
+                }
 
                 // Check if we have the required scope
                 if (!hasRequiredScopes(account)) {
@@ -319,8 +382,8 @@ class MainActivity : FragmentActivity() {
                 }
 
                 initializeApp(email)
-                Toast.makeText(this, "Signed in as $email", Toast.LENGTH_SHORT).show()
-            } else {
+                Toast.makeText(this, "Signed in successfully", Toast.LENGTH_SHORT).show()
+            } ?: run {
                 android.util.Log.e("MainActivity", "Sign-in failed: No account information")
                 Toast.makeText(this, "Sign-in failed: No account information", Toast.LENGTH_SHORT).show()
                 showSignInScreen()

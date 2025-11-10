@@ -316,11 +316,12 @@ fun HomeScreen(
     }
 
     // Date Picker Dialog
-    if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-        )
+    // Move state outside conditional to prevent recreation on recomposition
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+    )
 
+    if (showDatePicker) {
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -328,7 +329,7 @@ fun HomeScreen(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
                             val selectedDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.of("UTC"))
+                                .atZone(ZoneId.systemDefault())
                                 .toLocalDate()
                             viewModel.setSelectedDate(selectedDate)
                         }

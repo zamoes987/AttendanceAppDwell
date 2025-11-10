@@ -46,7 +46,8 @@ fun Navigation(
     biometricHelper: BiometricHelper
 ) {
     val navController = rememberNavController()
-    val settingsViewModel = SettingsViewModel(preferencesRepository)
+    // Use remember to prevent ViewModel recreation on recomposition
+    val settingsViewModel = remember { SettingsViewModel(preferencesRepository) }
 
     NavHost(
         navController = navController,

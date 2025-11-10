@@ -115,7 +115,10 @@ class AttendanceViewModel(
                     withTimeoutOrNull(10000) { // 10 second timeout
                         members.first { it.isNotEmpty() }
                     }
-                    attendanceRecords.first()  // Wait for first emission (may be empty if no records)
+                    // FIXED: Add timeout to prevent hanging forever
+                    withTimeoutOrNull(10000) { // 10 second timeout
+                        attendanceRecords.first()
+                    }
 
                     // Pre-populate selected members with today's attendance
                     loadTodayAttendance()
