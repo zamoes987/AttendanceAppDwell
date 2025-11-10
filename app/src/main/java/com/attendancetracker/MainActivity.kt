@@ -88,6 +88,39 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Detects if the user removed their Google account while the app was running.
+     * This prevents the app from continuing with invalid credentials and crashing on API calls.
+     */
+    override fun onResume() {
+        super.onResume()
+
+        // Verify account still exists when app resumes
+        if (authManager.isAuthenticated()) {
+            val account = GoogleSignIn.getLastSignedInAccount(this)
+            val storedEmail = authManager.getUserEmail()
+
+            if (storedEmail != null && (account == null || account.email != storedEmail)) {
+                // Account removed or changed - clear state and show sign-in screen
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d(
+                        "MainActivity",
+                        "Google account removed or changed. Stored: $storedEmail, Current: ${account?.email}"
+                    )
+                }
+                authManager.clearAuthState()
+                repository = null
+                viewModel = null
+                showSignInScreen()
+                Toast.makeText(
+                    this,
+                    "Google account was removed. Please sign in again.",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        }
+    }
+
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)

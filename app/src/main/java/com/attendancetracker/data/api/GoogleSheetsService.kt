@@ -9,6 +9,7 @@ import com.attendancetracker.data.models.Category
 import com.attendancetracker.data.models.Member
 import com.google.api.client.googleapis.extensions.android.gms.auth.GoogleAccountCredential
 import com.google.api.client.googleapis.extensions.android.gms.auth.UserRecoverableAuthIOException
+import com.google.api.client.googleapis.json.GoogleJsonResponseException
 import com.google.api.client.http.HttpRequestInitializer
 import com.google.api.client.http.javanet.NetHttpTransport
 import com.google.api.client.json.gson.GsonFactory
@@ -180,6 +181,13 @@ class GoogleSheetsService(
         } catch (e: UserRecoverableAuthIOException) {
             // ISSUE #1 FIX: Handle OAuth token expiration
             Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            // TASK #1 FIX: Add sheet deletion detection
+            if (e.statusCode == 404) {
+                Result.failure(Exception("Sheet '$currentYearTab' not found. Please check spreadsheet configuration."))
+            } else {
+                Result.failure(e)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -262,6 +270,13 @@ class GoogleSheetsService(
         } catch (e: UserRecoverableAuthIOException) {
             // ISSUE #1 FIX: Handle OAuth token expiration
             Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            // TASK #1 FIX: Add sheet deletion detection
+            if (e.statusCode == 404) {
+                Result.failure(Exception("Sheet '$currentYearTab' not found. Please check spreadsheet configuration."))
+            } else {
+                Result.failure(e)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -345,6 +360,13 @@ class GoogleSheetsService(
             } catch (e: UserRecoverableAuthIOException) {
                 // ISSUE #1 FIX: Handle OAuth token expiration
                 Result.failure(Exception("Authentication expired. Please sign in again."))
+            } catch (e: GoogleJsonResponseException) {
+                // TASK #1 FIX: Add sheet deletion detection
+                if (e.statusCode == 404) {
+                    Result.failure(Exception("Sheet '$currentYearTab' not found. Please check spreadsheet configuration."))
+                } else {
+                    Result.failure(e)
+                }
             } catch (e: Exception) {
                 Result.failure(e)
             }
@@ -408,6 +430,11 @@ class GoogleSheetsService(
                 )
             }
 
+            // TASK #3 FIX: Add empty member list validation
+            if (allMembers.isEmpty()) {
+                return@withContext Result.failure(Exception("No members found. Cannot save attendance."))
+            }
+
             // Prepare attendance column data
             val columnLetter = indexToColumnLetter(columnIndex)
 
@@ -436,10 +463,35 @@ class GoogleSheetsService(
                 .batchUpdate(SPREADSHEET_ID, batchRequest)
                 .execute()
 
+            // TASK #4 FIX: Add concurrent write detection
+            try {
+                val verifyResponse = sheetsService.spreadsheets().values()
+                    .get(SPREADSHEET_ID, headerRange)
+                    .execute()
+                val verifyHeader = verifyResponse.getValues()?.firstOrNull() ?: emptyList()
+                val dateCount = verifyHeader.count { cell ->
+                    val cellStr = cell.toString().trim()
+                    cellStr == dateString
+                }
+                if (dateCount > 1) {
+                    android.util.Log.w("GoogleSheetsService", "Warning: Duplicate date columns detected for $dateString")
+                }
+            } catch (e: Exception) {
+                // Verification failed but write succeeded, just log
+                android.util.Log.e("GoogleSheetsService", "Failed to verify write", e)
+            }
+
             Result.success(Unit)
         } catch (e: UserRecoverableAuthIOException) {
             // ISSUE #1 FIX: Handle OAuth token expiration
             Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            // TASK #2 FIX: Add permission error detection
+            if (e.statusCode == 403) {
+                Result.failure(Exception("Permission denied. You need edit access to this sheet."))
+            } else {
+                Result.failure(e)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -581,6 +633,13 @@ class GoogleSheetsService(
             Result.success(Unit)
         } catch (e: UserRecoverableAuthIOException) {
             Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            // TASK #2 FIX: Add permission error detection
+            if (e.statusCode == 403) {
+                Result.failure(Exception("Permission denied. You need edit access to this sheet."))
+            } else {
+                Result.failure(e)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -619,6 +678,13 @@ class GoogleSheetsService(
             Result.success(Unit)
         } catch (e: UserRecoverableAuthIOException) {
             Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            // TASK #2 FIX: Add permission error detection
+            if (e.statusCode == 403) {
+                Result.failure(Exception("Permission denied. You need edit access to this sheet."))
+            } else {
+                Result.failure(e)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }
@@ -675,6 +741,13 @@ class GoogleSheetsService(
             Result.success(Unit)
         } catch (e: UserRecoverableAuthIOException) {
             Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            // TASK #2 FIX: Add permission error detection
+            if (e.statusCode == 403) {
+                Result.failure(Exception("Permission denied. You need edit access to this sheet."))
+            } else {
+                Result.failure(e)
+            }
         } catch (e: Exception) {
             Result.failure(e)
         }

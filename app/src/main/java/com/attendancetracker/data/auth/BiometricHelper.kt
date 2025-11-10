@@ -78,16 +78,28 @@ class BiometricHelper(private val context: Context) {
             object : BiometricPrompt.AuthenticationCallback() {
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     super.onAuthenticationSucceeded(result)
+                    // Lifecycle check: prevent callback execution after Activity is destroyed
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        return
+                    }
                     onSuccess()
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     super.onAuthenticationError(errorCode, errString)
+                    // Lifecycle check: prevent callback execution after Activity is destroyed
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        return
+                    }
                     onError(errorCode, errString.toString())
                 }
 
                 override fun onAuthenticationFailed() {
                     super.onAuthenticationFailed()
+                    // Lifecycle check: prevent callback execution after Activity is destroyed
+                    if (activity.isFinishing || activity.isDestroyed) {
+                        return
+                    }
                     onFailure()
                 }
             }

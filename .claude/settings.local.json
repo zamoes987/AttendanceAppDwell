@@ -11,7 +11,8 @@
       "Bash(curl:*)",
       "Bash(powershell.exe:*)",
       "Bash(find:*)",
-      "Bash(./gradlew dependencies:*)"
+      "Bash(./gradlew dependencies:*)",
+      "Bash(./gradlew:*)"
     ],
     "deny": [],
     "ask": []
