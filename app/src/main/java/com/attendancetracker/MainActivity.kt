@@ -1,11 +1,10 @@
 package com.attendancetracker
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
-import androidx.activity.result.ActivityResultLauncher
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -50,8 +49,9 @@ class MainActivity : FragmentActivity() {
     private var repository: SheetsRepository? = null
     private var viewModel: AttendanceViewModel? = null
 
-    // Activity result launcher for sign-in
-    private lateinit var signInLauncher: ActivityResultLauncher<Intent>
+    companion object {
+        private const val RC_SIGN_IN = 9001
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -60,20 +60,6 @@ class MainActivity : FragmentActivity() {
             // Initialize managers
             authManager = AuthManager(applicationContext)
             biometricHelper = BiometricHelper(applicationContext)
-
-            // Register the sign-in result launcher
-            signInLauncher = registerForActivityResult(
-                ActivityResultContracts.StartActivityForResult()
-            ) { result ->
-                if (result.resultCode == RESULT_OK) {
-                    val task = GoogleSignIn.getSignedInAccountFromIntent(result.data)
-                    handleSignInResult(task)
-                } else {
-                    // Sign-in cancelled or failed
-                    Toast.makeText(this, "Sign-in cancelled", Toast.LENGTH_SHORT).show()
-                    showSignInScreen()
-                }
-            }
 
             // Configure Google Sign-In
             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -89,6 +75,21 @@ class MainActivity : FragmentActivity() {
             e.printStackTrace()
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
             showSignInScreen()
+        }
+    }
+
+    @Deprecated("Deprecated in Java")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == RC_SIGN_IN) {
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                val task = GoogleSignIn.getSignedInAccountFromIntent(data)
+                handleSignInResult(task)
+            } else {
+                Toast.makeText(this, "Sign-in cancelled", Toast.LENGTH_SHORT).show()
+                showSignInScreen()
+            }
         }
     }
 
@@ -277,15 +278,17 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Starts the Google Sign-In flow.
+     * Starts the Google Sign-In flow using startActivityForResult.
      */
+    @Suppress("DEPRECATION")
     private fun startSignIn() {
         try {
             val signInIntent = googleSignInClient.signInIntent
-            signInLauncher.launch(signInIntent)
-            android.util.Log.d("MainActivity", "Sign-in intent launched")
+            startActivityForResult(signInIntent, RC_SIGN_IN)
+            android.util.Log.d("MainActivity", "Sign-in intent launched with startActivityForResult")
         } catch (e: Exception) {
             e.printStackTrace()
+            android.util.Log.e("MainActivity", "Error starting sign-in", e)
             Toast.makeText(this, "Error starting sign-in: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
