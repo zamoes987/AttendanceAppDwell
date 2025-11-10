@@ -4,6 +4,8 @@ import androidx.compose.runtime.Composable
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.attendancetracker.data.auth.AuthManager
+import com.attendancetracker.data.auth.BiometricHelper
 import com.attendancetracker.data.repository.PreferencesRepository
 import com.attendancetracker.ui.screens.HistoryScreen
 import com.attendancetracker.ui.screens.HomeScreen
@@ -19,9 +21,6 @@ private const val ROUTE_HOME = "home"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_MEMBERS = "members"
-
-import com.attendancetracker.data.auth.AuthManager
-import com.attendancetracker.data.auth.BiometricHelper
 
 /**
  * Main navigation setup for the Attendance Tracker app.

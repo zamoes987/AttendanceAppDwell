@@ -3,7 +3,6 @@ package com.attendancetracker
 import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
@@ -11,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.attendancetracker.data.auth.AuthManager
 import com.attendancetracker.data.auth.BiometricHelper
@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
  * 3. SHA-1 fingerprint added to OAuth credentials
  * 4. User must have access to the Google Sheet specified in GoogleSheetsService
  */
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var authManager: AuthManager
