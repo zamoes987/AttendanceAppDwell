@@ -484,6 +484,48 @@ The app underwent comprehensive stability audits in January 2025, resulting in f
 - Read picker selection WITH UTC: `.atZone(ZoneId.of("UTC"))` (converts UTC → LocalDate without offset)
 - This asymmetry is correct and required for Material3 DatePicker
 
+### Recent Statistics Dashboard Fixes (Commit: 5a8fa91)
+**Critical data accuracy issues resolved**
+
+**Issue 1: Duplicate Date Columns (Streak Calculation Bug)**
+- Problem: Google Sheet contained duplicate date columns with different formatting (e.g., "11/06/25" and "11/6/25")
+- Impact: Created duplicate AttendanceRecords for same date, often with one having empty cells
+- Result: Streak calculations always returned 0 because duplicate empty cells broke consecutive attendance check
+- Root cause: Date column detection didn't deduplicate by parsed date value, only by string
+- Fix (GoogleSheetsService.kt:329-353):
+  - Added `seenDates: MutableSet<LocalDate>` to track already-processed dates
+  - Deduplicate by parsed date object, not string representation
+  - Only process first occurrence of each unique date
+  - Added debug logging: "Skipping duplicate date column: X (already have Y)"
+
+**Issue 2: Future Dates Breaking Current Streaks**
+- Problem: Sheet contained future date columns (beyond today) with empty cells
+- Impact: Current streak calculation started from most recent date (including future) and immediately hit empty cell
+- Result: All current streaks showed 0, even for members with perfect recent attendance
+- Also caused: Overall stats showed "December 2025" when current date was November 2025
+- Fix (GoogleSheetsService.kt:331-353):
+  - Filter out any date that `isAfter(LocalDate.now())`
+  - Only process historical dates (today and earlier)
+  - Added debug logging: "Skipping future date column: X (Y)"
+
+**Example Before Fix:**
+```
+Date columns processed: 11/06/25 (x), 11/6/25 (empty), 11/13/25 (empty), 12/04/25 (empty)
+Stormie Harlan: 35 x's in sheet → Current streak: 0 (broke at duplicate 11/6/25)
+```
+
+**Example After Fix:**
+```
+Date columns processed: 11/06/25 (x) only - duplicates and future dates skipped
+Stormie Harlan: 35 x's in sheet → Current streak: 3 (10/23, 10/30, 11/06)
+```
+
+**Critical Pattern for Google Sheets Date Processing:**
+- Always deduplicate date columns by parsed LocalDate value, not string
+- Always filter out future dates (after today) to prevent breaking streak calculations
+- Use `AttendanceRecord.parseDateFromSheet()` for consistent date parsing
+- Log skipped duplicates/future dates in debug mode for troubleshooting
+
 ### Testing Recommendations
 To verify stability fixes:
 1. **Rotation test**: Rotate device multiple times rapidly - verify no memory leaks or crashes
@@ -496,6 +538,7 @@ To verify stability fixes:
 8. **Biometric test**: Background app during biometric prompt - verify no crashes on resume
 9. **Date picker test**: Open picker, select date, reopen picker - verify shows newly selected date (not stale)
 10. **Timezone test**: Select any date in picker - verify that exact date is selected (no off-by-one)
+11. **Statistics test**: Verify streaks calculate correctly (not all 0), date range excludes future dates
 
 ## Testing Notes
 
