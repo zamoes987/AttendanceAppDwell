@@ -193,9 +193,21 @@ fun HomeScreen(
         },
         floatingActionButton = {
             ExtendedFloatingActionButton(
-                onClick = { viewModel.saveAttendance() },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                onClick = {
+                    if (uiState.canSave) {
+                        viewModel.saveAttendance()
+                    }
+                },
+                containerColor = if (uiState.canSave) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.surfaceVariant
+                },
+                contentColor = if (uiState.canSave) {
+                    MaterialTheme.colorScheme.onPrimary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             ) {
                 Icon(
                     imageVector = Icons.Default.Save,

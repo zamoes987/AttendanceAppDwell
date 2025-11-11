@@ -9,16 +9,21 @@ import com.attendancetracker.data.models.Member
 import com.attendancetracker.data.models.MemberStatistics
 import com.attendancetracker.data.models.OverallStatistics
 import com.attendancetracker.data.models.TrendAnalysis
+import com.attendancetracker.data.models.groupByCategory
 import com.attendancetracker.data.repository.MemberStatisticsSortBy
 import com.attendancetracker.data.repository.SheetsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.time.LocalDate
 
@@ -94,22 +99,29 @@ class AttendanceViewModel(
     private val _memberStatisticsSortBy = MutableStateFlow(MemberStatisticsSortBy.ATTENDANCE_HIGH)
     val memberStatisticsSortBy: StateFlow<MemberStatisticsSortBy> = _memberStatisticsSortBy.asStateFlow()
 
+    // Job reference for cancelling previous statistics calculations
+    private var statisticsJob: Job? = null
+
     /**
      * Combined UI state derived from multiple state flows.
      *
      * Automatically updates when any of the source flows change.
+     *
+     * PERFORMANCE FIX: Grouping by category is now done only when members list changes,
+     * not on every selection/date change. This prevents expensive groupBy operations
+     * on every recomposition with 75+ members.
      */
     val uiState: StateFlow<UiState> = combine(
-        members,
+        members.map { it.groupByCategory() }, // Group once when members change
         _selectedMembers,
         _currentDate
-    ) { membersList, selected, date ->
+    ) { membersByCategory, selected, date ->
         UiState(
-            membersByCategory = repository.getMembersByCategory(),
+            membersByCategory = membersByCategory,
             selectedCount = selected.size,
-            totalMembers = membersList.size,
+            totalMembers = membersByCategory.values.sumOf { it.size },
             todayDateString = AttendanceRecord.formatDateForSheet(date),
-            canSave = true // Could add validation logic here
+            canSave = selected.isNotEmpty()
         )
     }.stateIn(
         scope = viewModelScope,
@@ -352,11 +364,21 @@ class AttendanceViewModel(
                     attendanceRecords.first { it.isNotEmpty() }
                 }
 
-                // Calculate all statistics
-                _overallStatistics.value = repository.calculateOverallStatistics()
-                _memberStatistics.value = repository.calculateMemberStatistics(_memberStatisticsSortBy.value)
-                _categoryStatistics.value = repository.calculateCategoryStatistics()
-                _trendAnalysis.value = repository.calculateAttendanceTrend(meetingsCount = 10)
+                // Calculate on background thread
+                withContext(Dispatchers.Default) {
+                    val overall = repository.calculateOverallStatistics()
+                    val member = repository.calculateMemberStatistics(_memberStatisticsSortBy.value)
+                    val category = repository.calculateCategoryStatistics()
+                    val trend = repository.calculateAttendanceTrend(meetingsCount = 10)
+
+                    // Update UI on main thread
+                    withContext(Dispatchers.Main) {
+                        _overallStatistics.value = overall
+                        _memberStatistics.value = member
+                        _categoryStatistics.value = category
+                        _trendAnalysis.value = trend
+                    }
+                }
 
             } catch (e: Exception) {
                 android.util.Log.e("AttendanceViewModel", "Error calculating statistics", e)
@@ -372,7 +394,8 @@ class AttendanceViewModel(
      */
     fun setMemberStatisticsSort(sortBy: MemberStatisticsSortBy) {
         _memberStatisticsSortBy.value = sortBy
-        viewModelScope.launch {
+        statisticsJob?.cancel()
+        statisticsJob = viewModelScope.launch {
             _memberStatistics.value = repository.calculateMemberStatistics(sortBy)
         }
     }
