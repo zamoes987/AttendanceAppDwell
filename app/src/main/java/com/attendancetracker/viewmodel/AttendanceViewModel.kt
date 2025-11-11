@@ -64,6 +64,9 @@ class AttendanceViewModel(
     val attendanceRecords: StateFlow<List<AttendanceRecord>> = repository.attendanceRecords
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val allAttendanceRecords: StateFlow<List<AttendanceRecord>> = repository.rawAttendanceRecords
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
+
     val skippedDates: StateFlow<Set<String>> = repository.skippedDates
         .stateIn(viewModelScope, SharingStarted.Lazily, emptySet())
 

@@ -69,14 +69,15 @@ fun HistoryScreen(
     onNavigateBack: () -> Unit
 ) {
     // Collect state from ViewModel
-    val attendanceRecords by viewModel.attendanceRecords.collectAsState()
+    // Use allAttendanceRecords (raw/unfiltered) so we can show skipped dates with skip buttons
+    val allRecords by viewModel.allAttendanceRecords.collectAsState()
     val skippedDates by viewModel.skippedDates.collectAsState()
 
     // Get summaries from repository (accessing repository through viewModel is not ideal
     // but works for this implementation)
-    val summaries = remember(attendanceRecords) {
+    val summaries = remember(allRecords) {
         // Remove duplicate dates by grouping and taking the first of each date
-        attendanceRecords
+        allRecords
             .groupBy { it.date }
             .mapNotNull { (_, records) -> records.firstOrNull() }
             .sortedByDescending { it.date }

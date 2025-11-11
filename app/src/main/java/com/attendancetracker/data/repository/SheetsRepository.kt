@@ -62,6 +62,7 @@ class SheetsRepository(
 
     // Raw attendance records (before filtering skipped dates)
     private val _rawAttendanceRecords = MutableStateFlow<List<AttendanceRecord>>(emptyList())
+    val rawAttendanceRecords: Flow<List<AttendanceRecord>> = _rawAttendanceRecords.asStateFlow()
 
     // Filtered attendance records (exposed to ViewModel - excludes skipped dates)
     private val _attendanceRecords = MutableStateFlow<List<AttendanceRecord>>(emptyList())

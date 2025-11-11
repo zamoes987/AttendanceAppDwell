@@ -1,32 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(\"$USERPROFILE/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s R5CX41RRY0M uninstall com.attendancetracker)",
-      "Bash(\"$USERPROFILE/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s R5CX41RRY0M install \"$USERPROFILE/AppDevAttendance/app/build/outputs/apk/debug/app-debug.apk\")",
-      "Bash(git init:*)",
-      "Bash(git config:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "WebFetch(domain:www.dwellcc.org)",
-      "Bash(curl:*)",
-      "Bash(powershell.exe:*)",
-      "Bash(find:*)",
-      "Bash(./gradlew dependencies:*)",
-      "Bash(./gradlew:*)",
-      "Bash(gradlew.bat clean build:*)",
-      "Bash(tee:*)",
-      "Bash(gradlew.bat compileDebugKotlin:*)",
-      "Bash(.gradlew.bat compileDebugKotlin:*)",
-      "Bash(gradlew.bat assembleDebug:*)",
-      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && cd /d C:\\Users\\zanee\\AppDevAttendance && gradlew.bat assembleDebug\")",
-      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && cd /d C:\\Users\\zanee\\AppDevAttendance && gradlew.bat clean assembleDebug 2>&1\")",
-      "Bash(cmd.exe /c \"C:\\Users\\zanee\\AppDevAttendance\\build_debug.bat\")",
-      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && cd /d C:\\Users\\zanee\\AppDevAttendance && gradlew.bat --version\")",
-      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && cd /d C:\\Users\\zanee\\AppDevAttendance && gradlew.bat clean assembleDebug 2>&1 | findstr /C:BUILD\":*)",
-      "Bash(\"$USERPROFILE/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s R5CX41RRY0M install -r \"$USERPROFILE/AppDevAttendance/app/build/outputs/apk/debug/app-debug.apk\")",
-      "Bash(\"$USERPROFILE/AppData/Local/Android/Sdk/platform-tools/adb.exe\" -s R5CX41RRY0M logcat -d)",
-      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && cd /d C:\\Users\\zanee\\AppDevAttendance && gradlew.bat assembleDebug 2>&1\":*)",
-      "Bash(C:UserszaneeAppDevAttendancebuild_output.txt)"
+      "Bash(build_new.txt)",
+      "Bash(C:UserszaneeAppDataLocalAndroidSdkplatform-toolsadb.exe -s R5CX41RRY0M install -r C:UserszaneeAppDevAttendanceappbuildoutputsapkdebugapp-debug.apk)"
     ],
     "deny": [],
     "ask": []
