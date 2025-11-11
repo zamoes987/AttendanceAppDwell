@@ -328,8 +328,10 @@ fun HomeScreen(
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
+                            // DatePicker returns UTC midnight for selected date, so we must use UTC zone
+                            // to avoid timezone offset bugs (e.g., selecting Nov 6 but getting Nov 5)
                             val selectedDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.systemDefault())
+                                .atZone(ZoneId.of("UTC"))
                                 .toLocalDate()
                             viewModel.setSelectedDate(selectedDate)
                         }
