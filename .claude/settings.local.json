@@ -12,7 +12,12 @@
       "Bash(powershell.exe:*)",
       "Bash(find:*)",
       "Bash(./gradlew dependencies:*)",
-      "Bash(./gradlew:*)"
+      "Bash(./gradlew:*)",
+      "Bash(gradlew.bat clean build:*)",
+      "Bash(tee:*)",
+      "Bash(gradlew.bat compileDebugKotlin:*)",
+      "Bash(.gradlew.bat compileDebugKotlin:*)",
+      "Bash(gradlew.bat assembleDebug:*)"
     ],
     "deny": [],
     "ask": []

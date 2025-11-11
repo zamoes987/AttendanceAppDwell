@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.People
@@ -69,6 +70,7 @@ import kotlinx.coroutines.delay
  * @param onNavigateToHistory Callback to navigate to the history screen
  * @param onNavigateToSettings Callback to navigate to settings screen
  * @param onNavigateToMembers Callback to navigate to members screen
+ * @param onNavigateToStatistics Callback to navigate to statistics screen
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -76,7 +78,8 @@ fun HomeScreen(
     viewModel: AttendanceViewModel,
     onNavigateToHistory: () -> Unit,
     onNavigateToSettings: () -> Unit = {},
-    onNavigateToMembers: () -> Unit = {}
+    onNavigateToMembers: () -> Unit = {},
+    onNavigateToStatistics: () -> Unit = {}
 ) {
     // Collect state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -140,7 +143,17 @@ fun HomeScreen(
                     IconButton(onClick = onNavigateToMembers) {
                         Icon(
                             imageVector = Icons.Default.People,
-                            contentDescription = "Members"
+                            contentDescription = "Members",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+
+                    // Statistics button
+                    IconButton(onClick = onNavigateToStatistics) {
+                        Icon(
+                            imageVector = Icons.Default.BarChart,
+                            contentDescription = "Statistics",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 
@@ -148,7 +161,8 @@ fun HomeScreen(
                     IconButton(onClick = onNavigateToHistory) {
                         Icon(
                             imageVector = Icons.Default.History,
-                            contentDescription = "View History"
+                            contentDescription = "View History",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 
@@ -156,7 +170,8 @@ fun HomeScreen(
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(
                             imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings"
+                            contentDescription = "Settings",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
 
@@ -164,7 +179,8 @@ fun HomeScreen(
                     IconButton(onClick = { viewModel.refreshData() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "Refresh"
+                            contentDescription = "Refresh",
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                 },

@@ -4,7 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.attendancetracker.data.models.AttendanceRecord
 import com.attendancetracker.data.models.Category
+import com.attendancetracker.data.models.CategoryStatistics
 import com.attendancetracker.data.models.Member
+import com.attendancetracker.data.models.MemberStatistics
+import com.attendancetracker.data.models.OverallStatistics
+import com.attendancetracker.data.models.TrendAnalysis
+import com.attendancetracker.data.repository.MemberStatisticsSortBy
 import com.attendancetracker.data.repository.SheetsRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -69,6 +74,25 @@ class AttendanceViewModel(
 
     private val _memberOperationMessage = MutableStateFlow<String?>(null)
     val memberOperationMessage: StateFlow<String?> = _memberOperationMessage.asStateFlow()
+
+    // Statistics state flows
+    private val _overallStatistics = MutableStateFlow<OverallStatistics?>(null)
+    val overallStatistics: StateFlow<OverallStatistics?> = _overallStatistics.asStateFlow()
+
+    private val _memberStatistics = MutableStateFlow<List<MemberStatistics>>(emptyList())
+    val memberStatistics: StateFlow<List<MemberStatistics>> = _memberStatistics.asStateFlow()
+
+    private val _categoryStatistics = MutableStateFlow<List<CategoryStatistics>>(emptyList())
+    val categoryStatistics: StateFlow<List<CategoryStatistics>> = _categoryStatistics.asStateFlow()
+
+    private val _trendAnalysis = MutableStateFlow<TrendAnalysis?>(null)
+    val trendAnalysis: StateFlow<TrendAnalysis?> = _trendAnalysis.asStateFlow()
+
+    private val _statisticsLoading = MutableStateFlow(false)
+    val statisticsLoading: StateFlow<Boolean> = _statisticsLoading.asStateFlow()
+
+    private val _memberStatisticsSortBy = MutableStateFlow(MemberStatisticsSortBy.ATTENDANCE_HIGH)
+    val memberStatisticsSortBy: StateFlow<MemberStatisticsSortBy> = _memberStatisticsSortBy.asStateFlow()
 
     /**
      * Combined UI state derived from multiple state flows.
@@ -311,5 +335,52 @@ class AttendanceViewModel(
                 _selectedMembers.value = emptySet()
             }
         }
+    }
+
+    /**
+     * Calculates and updates all statistics.
+     *
+     * Should be called when navigating to statistics screen or after data refresh.
+     */
+    fun calculateStatistics() {
+        viewModelScope.launch {
+            _statisticsLoading.value = true
+
+            try {
+                // Wait for data to be loaded (with timeout)
+                withTimeoutOrNull(5000) {
+                    attendanceRecords.first { it.isNotEmpty() }
+                }
+
+                // Calculate all statistics
+                _overallStatistics.value = repository.calculateOverallStatistics()
+                _memberStatistics.value = repository.calculateMemberStatistics(_memberStatisticsSortBy.value)
+                _categoryStatistics.value = repository.calculateCategoryStatistics()
+                _trendAnalysis.value = repository.calculateAttendanceTrend(meetingsCount = 10)
+
+            } catch (e: Exception) {
+                android.util.Log.e("AttendanceViewModel", "Error calculating statistics", e)
+                // Statistics remain null/empty - UI will show empty state
+            } finally {
+                _statisticsLoading.value = false
+            }
+        }
+    }
+
+    /**
+     * Changes the sort order for member statistics.
+     */
+    fun setMemberStatisticsSort(sortBy: MemberStatisticsSortBy) {
+        _memberStatisticsSortBy.value = sortBy
+        viewModelScope.launch {
+            _memberStatistics.value = repository.calculateMemberStatistics(sortBy)
+        }
+    }
+
+    /**
+     * Refreshes statistics (recalculates from current data).
+     */
+    fun refreshStatistics() {
+        calculateStatistics()
     }
 }

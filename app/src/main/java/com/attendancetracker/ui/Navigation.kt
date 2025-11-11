@@ -12,6 +12,7 @@ import com.attendancetracker.ui.screens.HistoryScreen
 import com.attendancetracker.ui.screens.HomeScreen
 import com.attendancetracker.ui.screens.MembersScreen
 import com.attendancetracker.ui.screens.SettingsScreen
+import com.attendancetracker.ui.screens.StatisticsScreen
 import com.attendancetracker.viewmodel.AttendanceViewModel
 import com.attendancetracker.viewmodel.SettingsViewModel
 
@@ -22,6 +23,7 @@ private const val ROUTE_HOME = "home"
 private const val ROUTE_HISTORY = "history"
 private const val ROUTE_SETTINGS = "settings"
 private const val ROUTE_MEMBERS = "members"
+private const val ROUTE_STATISTICS = "statistics"
 
 /**
  * Main navigation setup for the Attendance Tracker app.
@@ -66,6 +68,9 @@ fun Navigation(
                 },
                 onNavigateToMembers = {
                     navController.navigate(ROUTE_MEMBERS)
+                },
+                onNavigateToStatistics = {
+                    navController.navigate(ROUTE_STATISTICS)
                 }
             )
         }
@@ -96,6 +101,16 @@ fun Navigation(
         // Members screen route
         composable(ROUTE_MEMBERS) {
             MembersScreen(
+                viewModel = viewModel,
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+
+        // Statistics screen route
+        composable(ROUTE_STATISTICS) {
+            StatisticsScreen(
                 viewModel = viewModel,
                 onNavigateBack = {
                     navController.popBackStack()

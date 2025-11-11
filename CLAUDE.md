@@ -77,13 +77,13 @@ Google Sheets API / Encrypted SharedPreferences
 - `auth/BiometricHelper.kt`: Biometric authentication wrapper
 
 **UI Layer** (`app/src/main/java/com/attendancetracker/ui/`)
-- `screens/`: Full-screen composables (HomeScreen, HistoryScreen, MembersScreen, SettingsScreen, SignInScreen)
+- `screens/`: Full-screen composables (HomeScreen, HistoryScreen, MembersScreen, SettingsScreen, SignInScreen, StatisticsScreen)
 - `components/`: Reusable UI components (MemberListItem, CategoryHeader, CommonComponents)
 - `theme/`: Material 3 theme definitions (Color, Theme, Type)
 - `Navigation.kt`: Navigation graph setup
 
 **ViewModel Layer** (`app/src/main/java/com/attendancetracker/viewmodel/`)
-- `AttendanceViewModel.kt`: Primary ViewModel managing members, attendance records, and UI state
+- `AttendanceViewModel.kt`: Primary ViewModel managing members, attendance records, statistics, and UI state
 - `SettingsViewModel.kt`: Settings screen state management
 
 ### Data Flow
@@ -212,9 +212,9 @@ Uses deprecated `startActivityForResult` for Google Sign-In to avoid 16-bit requ
 
 ### Navigation
 Single-Activity architecture with Navigation Compose:
-- Routes: `home` (start), `history`, `settings`, `members`
-- Shared ViewModel across home/history/members screens
-- Settings has separate ViewModel
+- Routes: `home` (start), `history`, `settings`, `members`, `statistics`
+- Shared AttendanceViewModel across home/history/members/statistics screens
+- Settings has separate SettingsViewModel
 
 ### Key Files to Modify
 
@@ -263,6 +263,146 @@ Key libraries:
 - AndroidX Biometric (biometric auth)
 - Kotlin Coroutines (async operations)
 - DataStore (preferences storage)
+
+## Statistics Dashboard Feature
+
+The Statistics Dashboard provides attendance insights and analytics for leaders to understand patterns, track trends, and identify member engagement.
+
+### Overview
+
+**Accessible from**: HomeScreen TopAppBar → BarChart icon
+**Route**: `statistics`
+**ViewModel**: Shared AttendanceViewModel
+**Navigation**: Back button returns to HomeScreen
+
+### Feature Components
+
+**Data Models** (`data/models/Statistics.kt`):
+- `OverallStatistics` - Aggregate metrics across all meetings and members
+- `MemberStatistics` - Individual member stats with attendance rate and streaks
+- `CategoryStatistics` - Category-level averages and comparisons
+- `AttendanceTrend` - Individual trend data points
+- `TrendAnalysis` - Complete trend analysis with direction
+- `TrendDirection` - enum: IMPROVING, STABLE, DECLINING
+
+**Repository Methods** (`data/repository/SheetsRepository.kt`):
+- `calculateOverallStatistics()` - Returns overall attendance metrics
+- `calculateMemberStatistics(sortBy)` - Returns per-member statistics with sorting
+- `calculateCategoryStatistics()` - Returns category-level aggregates
+- `calculateAttendanceTrend(meetingsCount = 10)` - Analyzes recent attendance trends
+- `MemberStatisticsSortBy` - enum with 7 sorting options (ATTENDANCE_HIGH, NAME_ASC, CURRENT_STREAK, etc.)
+
+**ViewModel State** (`viewmodel/AttendanceViewModel.kt`):
+- `overallStatistics: StateFlow<OverallStatistics?>` - Overall metrics
+- `memberStatistics: StateFlow<List<MemberStatistics>>` - Member-level stats
+- `categoryStatistics: StateFlow<List<CategoryStatistics>>` - Category aggregates
+- `trendAnalysis: StateFlow<TrendAnalysis?>` - Trend data and direction
+- `statisticsLoading: StateFlow<Boolean>` - Loading state
+- `memberStatisticsSortBy: StateFlow<MemberStatisticsSortBy>` - Current sort preference
+
+**ViewModel Methods**:
+- `calculateStatistics()` - Calculates all statistics from current data
+- `setMemberStatisticsSort(sortBy)` - Changes member statistics sort order
+- `refreshStatistics()` - Recalculates statistics (for manual refresh)
+
+### UI Components
+
+**StatisticsScreen** (`ui/screens/StatisticsScreen.kt`) - 12 composables, 798 lines:
+
+1. **OverallStatisticsCard** - Displays:
+   - Total meetings tracked
+   - Average attendance percentage
+   - Active members count
+   - Date range covered
+
+2. **TrendCard** - Shows:
+   - Last 10 meetings trend chart (bar visualization)
+   - Direction indicator (IMPROVING/DECLINING/STABLE with color coding)
+   - Percentage change from first to last meeting
+   - Date labels and attendance counts
+
+3. **CategoryComparisonCard** - Displays:
+   - Average attendance rate per category
+   - Progress bars for visual comparison
+   - Total members per category
+   - Sorted by category order (OM → XT → RN → FT → V)
+
+4. **MemberStatisticsSection** - Shows:
+   - Sortable member list with FilterChips (Attendance, Name, Current Streak, Category)
+   - Each member displays:
+     - Name and category abbreviation
+     - Attendance rate (color-coded: green ≥80%, amber 50-79%, red <50%)
+     - Total meetings attended vs total
+     - Current streak (with 🔥 emoji when ≥3)
+     - Longest streak
+     - Last attended date
+
+5. **EmptyStatisticsState** - Shown when no attendance data exists
+6. **LoadingIndicator** - Shown during statistics calculation
+
+### Calculation Details
+
+**Attendance Rate**: `(meetings attended / total meetings) × 100`
+
+**Current Streak**: Count of consecutive recent meetings attended (from most recent backwards)
+
+**Longest Streak**: Best consecutive attendance run in entire history
+
+**Trend Direction**:
+- IMPROVING: >5% increase from first half to second half of trend period
+- DECLINING: >5% decrease from first half to second half
+- STABLE: Change within ±5%
+
+**Category Average**: `(sum of all member attendance rates in category) / members in category`
+
+### Performance
+
+**Calculation Complexity:**
+- Overall stats: O(n + m) where n=members, m=meetings
+- Member stats: O(n × m) - iterates each member's history
+- Category stats: O(n) - grouping operation
+- Trend analysis: O(m) - only meetings data
+
+**Typical Performance:**
+- 75 members × 40 meetings = ~150ms calculation time
+- All calculations are synchronous (no suspend functions)
+- No network calls - purely in-memory calculations
+- Statistics calculated on-demand (not on every recomposition)
+
+### Edge Cases Handled
+
+- No attendance data yet → Shows EmptyStatisticsState
+- Only 1-2 meetings recorded → Trend shows STABLE with note
+- Member with 0% attendance → Displays 0% with red badge
+- All members 100% attendance → Shows ideal state
+- Very large dataset (150+ members, 75+ meetings) → Shows loading indicator
+- Concurrent data modification → StateFlows ensure thread-safe reads
+- Network failure during data load → Shows empty state with refresh option
+
+### Usage Flow
+
+1. User taps BarChart icon in HomeScreen TopAppBar
+2. Navigate to StatisticsScreen
+3. `LaunchedEffect(Unit)` calls `viewModel.calculateStatistics()`
+4. ViewModel waits for attendance data (5-second timeout)
+5. Repository calculates all statistics from StateFlows
+6. ViewModel updates statistics StateFlows
+7. UI collects StateFlows and recomposes
+8. User can:
+   - View overall metrics, trends, and category comparisons
+   - Sort member statistics by different criteria
+   - Tap refresh to recalculate
+   - Tap back to return to HomeScreen
+
+### Key Design Patterns
+
+- **Reactive State**: All statistics exposed via StateFlow for automatic UI updates
+- **Separation of Concerns**: Calculations in Repository, state in ViewModel, display in UI
+- **Immutable Data**: All data models are immutable data classes
+- **Error Recovery**: Failed calculations result in empty state, not crashes
+- **Loading States**: Separate `statisticsLoading` prevents conflicts with main app loading
+- **Material 3 Design**: Cards, FilterChips, LinearProgressIndicator, proper color theming
+- **Performance Optimization**: LazyColumn with key-based items, calculations only on-demand
 
 ## Stability & Reliability (Recently Fixed)
 

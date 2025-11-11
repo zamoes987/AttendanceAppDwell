@@ -13,6 +13,25 @@ import kotlinx.coroutines.flow.asStateFlow
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
+import com.attendancetracker.data.models.AttendanceTrend
+import com.attendancetracker.data.models.CategoryStatistics
+import com.attendancetracker.data.models.MemberStatistics
+import com.attendancetracker.data.models.OverallStatistics
+import com.attendancetracker.data.models.TrendAnalysis
+import com.attendancetracker.data.models.TrendDirection
+
+/**
+ * Enum for sorting member statistics.
+ */
+enum class MemberStatisticsSortBy {
+    NAME_ASC,           // Alphabetically by name (A-Z)
+    NAME_DESC,          // Reverse alphabetically (Z-A)
+    ATTENDANCE_HIGH,    // Highest attendance percentage first
+    ATTENDANCE_LOW,     // Lowest attendance percentage first
+    CURRENT_STREAK,     // Highest current streak first
+    LONGEST_STREAK,     // Highest longest streak first
+    CATEGORY            // Grouped by category (OM, XT, RN, FT, V)
+}
 
 /**
  * Repository layer providing a clean API between UI and Google Sheets service.
@@ -483,5 +502,229 @@ class SheetsRepository(
      */
     fun clearError() {
         _error.value = null
+    }
+
+    // ========== STATISTICS METHODS ==========
+
+    /**
+     * Calculates overall statistics for all members across all meetings.
+     *
+     * Operates on cached data (no network calls).
+     * Returns metrics about total members, meetings, and attendance patterns.
+     *
+     * @return OverallStatistics with aggregated metrics, or default values if no data
+     */
+    fun calculateOverallStatistics(): OverallStatistics {
+        val members = _members.value
+        val records = _attendanceRecords.value
+
+        if (members.isEmpty() || records.isEmpty()) {
+            return OverallStatistics(
+                totalMembers = members.size,
+                totalMeetings = records.size,
+                averageAttendance = 0.0,
+                averageAttendancePercentage = 0.0,
+                highestAttendance = 0,
+                lowestAttendance = 0,
+                mostRecentMeetingDate = null
+            )
+        }
+
+        // Calculate average attendance across all meetings
+        val totalAttendances = records.sumOf { it.getTotalAttendance() }
+        val averageAttendance = totalAttendances.toDouble() / records.size
+
+        // Calculate average attendance percentage
+        val averageAttendancePercentage = if (members.size > 0) {
+            (averageAttendance / members.size) * 100.0
+        } else {
+            0.0
+        }
+
+        // Find highest and lowest attendance
+        val highestAttendance = records.maxOfOrNull { it.getTotalAttendance() } ?: 0
+        val lowestAttendance = records.minOfOrNull { it.getTotalAttendance() } ?: 0
+
+        // Get most recent meeting date
+        val mostRecentMeetingDate = records.maxByOrNull { it.date }?.date
+
+        return OverallStatistics(
+            totalMembers = members.size,
+            totalMeetings = records.size,
+            averageAttendance = averageAttendance,
+            averageAttendancePercentage = averageAttendancePercentage,
+            highestAttendance = highestAttendance,
+            lowestAttendance = lowestAttendance,
+            mostRecentMeetingDate = mostRecentMeetingDate
+        )
+    }
+
+    /**
+     * Calculates statistics for each member.
+     *
+     * Operates on cached data (no network calls).
+     * Returns a list of member statistics with attendance percentages and streaks.
+     *
+     * @param sortBy How to sort the results (default: NAME_ASC)
+     * @return List of MemberStatistics sorted according to sortBy parameter
+     */
+    fun calculateMemberStatistics(sortBy: MemberStatisticsSortBy = MemberStatisticsSortBy.NAME_ASC): List<MemberStatistics> {
+        val members = _members.value
+        val records = _attendanceRecords.value
+
+        if (members.isEmpty()) {
+            return emptyList()
+        }
+
+        // Calculate statistics for each member
+        val memberStats = members.map { member ->
+            MemberStatistics.fromMember(member, records)
+        }
+
+        // Sort according to the specified criteria
+        return when (sortBy) {
+            MemberStatisticsSortBy.NAME_ASC -> memberStats.sortedBy { it.memberName }
+            MemberStatisticsSortBy.NAME_DESC -> memberStats.sortedByDescending { it.memberName }
+            MemberStatisticsSortBy.ATTENDANCE_HIGH -> memberStats.sortedByDescending { it.attendancePercentage }
+            MemberStatisticsSortBy.ATTENDANCE_LOW -> memberStats.sortedBy { it.attendancePercentage }
+            MemberStatisticsSortBy.CURRENT_STREAK -> memberStats.sortedByDescending { it.currentStreak }
+            MemberStatisticsSortBy.LONGEST_STREAK -> memberStats.sortedByDescending { it.longestStreak }
+            MemberStatisticsSortBy.CATEGORY -> {
+                val categoryOrder = listOf(
+                    Category.ORIGINAL_MEMBER,
+                    Category.XENOS_TRANSFER,
+                    Category.RETURNING_NEW,
+                    Category.FIRST_TIMER,
+                    Category.VISITOR
+                )
+                memberStats.sortedWith(
+                    compareBy<MemberStatistics> { categoryOrder.indexOf(it.category) }
+                        .thenBy { it.memberName }
+                )
+            }
+        }
+    }
+
+    /**
+     * Calculates statistics for each category.
+     *
+     * Operates on cached data (no network calls).
+     * Returns aggregated attendance metrics for each category.
+     *
+     * @return List of CategoryStatistics, one per category that has members
+     */
+    fun calculateCategoryStatistics(): List<CategoryStatistics> {
+        val members = _members.value
+        val records = _attendanceRecords.value
+
+        if (members.isEmpty()) {
+            return emptyList()
+        }
+
+        val totalMeetings = records.size
+
+        // Group members by category
+        val membersByCategory = members.groupByCategory()
+
+        // Calculate statistics for each category
+        return membersByCategory.map { (category, categoryMembers) ->
+            val memberCount = categoryMembers.size
+            val totalPossibleAttendances = memberCount * totalMeetings
+
+            // Count total meetings attended by all members in this category
+            val totalMeetingsAttended = categoryMembers.sumOf { member ->
+                member.getTotalAttendance()
+            }
+
+            // Calculate average attendance percentage for the category
+            val averageAttendancePercentage = if (totalPossibleAttendances > 0) {
+                (totalMeetingsAttended.toDouble() / totalPossibleAttendances) * 100.0
+            } else {
+                0.0
+            }
+
+            CategoryStatistics(
+                category = category,
+                memberCount = memberCount,
+                averageAttendancePercentage = averageAttendancePercentage,
+                totalMeetingsAttended = totalMeetingsAttended,
+                totalPossibleAttendances = totalPossibleAttendances
+            )
+        }.sortedBy { it.category.ordinal } // Sort by category order (OM, XT, RN, FT, V)
+    }
+
+    /**
+     * Calculates attendance trend over recent meetings.
+     *
+     * Operates on cached data (no network calls).
+     * Analyzes the last N meetings to determine if attendance is improving,
+     * stable, or declining.
+     *
+     * @param meetingsCount Number of recent meetings to analyze (default: 10)
+     * @return TrendAnalysis with trend points and direction assessment
+     */
+    fun calculateAttendanceTrend(meetingsCount: Int = 10): TrendAnalysis {
+        val members = _members.value
+        val records = _attendanceRecords.value
+
+        if (records.isEmpty()) {
+            return TrendAnalysis(
+                trendPoints = emptyList(),
+                direction = TrendDirection.STABLE,
+                changePercentage = 0.0
+            )
+        }
+
+        // Get the most recent N meetings
+        val recentRecords = records.sortedByDescending { it.date }.take(meetingsCount)
+
+        // Calculate trend points
+        val trendPoints = recentRecords.map { record ->
+            val attendanceCount = record.getTotalAttendance()
+            val attendancePercentage = if (members.size > 0) {
+                (attendanceCount.toDouble() / members.size) * 100.0
+            } else {
+                0.0
+            }
+
+            AttendanceTrend(
+                date = record.date,
+                attendanceCount = attendanceCount,
+                attendancePercentage = attendancePercentage
+            )
+        }.sortedBy { it.date } // Sort chronologically for trend analysis
+
+        // Determine trend direction
+        if (trendPoints.size < 2) {
+            return TrendAnalysis(
+                trendPoints = trendPoints,
+                direction = TrendDirection.STABLE,
+                changePercentage = 0.0
+            )
+        }
+
+        // Calculate percentage change from first to last meeting
+        val firstAttendance = trendPoints.first().attendancePercentage
+        val lastAttendance = trendPoints.last().attendancePercentage
+
+        val changePercentage = if (firstAttendance > 0) {
+            ((lastAttendance - firstAttendance) / firstAttendance) * 100.0
+        } else {
+            0.0
+        }
+
+        // Determine direction based on change percentage
+        // Using thresholds: >5% = improving, <-5% = declining, otherwise stable
+        val direction = when {
+            changePercentage > 5.0 -> TrendDirection.IMPROVING
+            changePercentage < -5.0 -> TrendDirection.DECLINING
+            else -> TrendDirection.STABLE
+        }
+
+        return TrendAnalysis(
+            trendPoints = trendPoints,
+            direction = direction,
+            changePercentage = changePercentage
+        )
     }
 }
