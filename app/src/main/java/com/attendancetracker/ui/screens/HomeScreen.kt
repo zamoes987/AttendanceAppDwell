@@ -45,6 +45,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.time.Instant
@@ -81,6 +83,9 @@ fun HomeScreen(
     onNavigateToMembers: () -> Unit = {},
     onNavigateToStatistics: () -> Unit = {}
 ) {
+    // Haptic feedback
+    val haptic = LocalHapticFeedback.current
+
     // Collect state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -195,6 +200,7 @@ fun HomeScreen(
             ExtendedFloatingActionButton(
                 onClick = {
                     if (uiState.canSave) {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.saveAttendance()
                     }
                 },
@@ -261,7 +267,10 @@ fun HomeScreen(
                         ) {
                             // Select All button
                             Button(
-                                onClick = { viewModel.selectAll() }
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.selectAll()
+                                }
                             ) {
                                 Text("Select All")
                             }
@@ -270,7 +279,10 @@ fun HomeScreen(
 
                             // Clear All button
                             OutlinedButton(
-                                onClick = { viewModel.clearAll() }
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.clearAll()
+                                }
                             ) {
                                 Text("Clear All")
                             }
@@ -327,7 +339,10 @@ fun HomeScreen(
                                     MemberListItem(
                                         member = member,
                                         isSelected = member.id in selectedMembers,
-                                        onToggle = { viewModel.toggleMemberSelection(it) }
+                                        onToggle = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.toggleMemberSelection(it)
+                                        }
                                     )
                                 }
                             }

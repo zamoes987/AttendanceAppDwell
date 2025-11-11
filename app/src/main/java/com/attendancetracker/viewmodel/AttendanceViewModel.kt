@@ -11,6 +11,7 @@ import com.attendancetracker.data.models.OverallStatistics
 import com.attendancetracker.data.models.TrendAnalysis
 import com.attendancetracker.data.models.groupByCategory
 import com.attendancetracker.data.repository.MemberStatisticsSortBy
+import com.attendancetracker.data.repository.PreferencesRepository
 import com.attendancetracker.data.repository.SheetsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -35,9 +36,11 @@ import java.time.LocalDate
  * currently selected members for the meeting.
  *
  * @property repository The data repository for accessing attendance data
+ * @property preferencesRepository The preferences repository for persisting user settings
  */
 class AttendanceViewModel(
-    private val repository: SheetsRepository
+    private val repository: SheetsRepository,
+    private val preferencesRepository: PreferencesRepository
 ) : ViewModel() {
 
     /**
@@ -130,6 +133,13 @@ class AttendanceViewModel(
     )
 
     init {
+        // Load saved sort preference
+        viewModelScope.launch {
+            preferencesRepository.statisticsSortPreference.first().let { savedSort ->
+                _memberStatisticsSortBy.value = savedSort
+            }
+        }
+
         // Load data when ViewModel is created
         loadData()
     }
@@ -328,6 +338,10 @@ class AttendanceViewModel(
     /**
      * Loads attendance for a specific date and pre-selects members.
      *
+     * Smart auto-select: If no attendance exists for the date, pre-selects members
+     * who were present exactly 1 week ago. This saves leaders ~60 clicks per week
+     * by automatically selecting consistent attendees.
+     *
      * @param date The date to load attendance for
      */
     private fun loadAttendanceForDate(date: LocalDate) {
@@ -337,14 +351,16 @@ class AttendanceViewModel(
 
             // Find record by matching the actual date, not the string
             // (handles different date string formats like "1/9/25" vs "01/09/25")
-            val record = records.find { it.date == date }
+            val todayRecord = records.find { it.date == date }
 
-            if (record != null) {
+            if (todayRecord != null) {
                 // Found existing attendance for this date - pre-select those members
-                _selectedMembers.value = record.presentMembers.toSet()
+                _selectedMembers.value = todayRecord.presentMembers.toSet()
             } else {
-                // No attendance recorded for this date, clear selections
-                _selectedMembers.value = emptySet()
+                // Smart pre-select: use last week's attendance (1 week = 7 days)
+                val lastWeek = date.minusWeeks(1)
+                val lastWeekRecord = records.find { it.date == lastWeek }
+                _selectedMembers.value = lastWeekRecord?.presentMembers?.toSet() ?: emptySet()
             }
         }
     }
@@ -391,11 +407,15 @@ class AttendanceViewModel(
 
     /**
      * Changes the sort order for member statistics.
+     * Persists the preference to DataStore for future sessions.
      */
     fun setMemberStatisticsSort(sortBy: MemberStatisticsSortBy) {
         _memberStatisticsSortBy.value = sortBy
         statisticsJob?.cancel()
         statisticsJob = viewModelScope.launch {
+            // Save preference
+            preferencesRepository.setStatisticsSortPreference(sortBy)
+
             _memberStatistics.value = repository.calculateMemberStatistics(sortBy)
         }
     }

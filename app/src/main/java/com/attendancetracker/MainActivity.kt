@@ -301,9 +301,9 @@ class MainActivity : FragmentActivity() {
             // Initialize repository and ViewModel
             repository = SheetsRepository(applicationContext, email)
             val repo = repository ?: throw IllegalStateException("Failed to create repository")
-            viewModel = AttendanceViewModel(repo)
-            val vm = viewModel ?: throw IllegalStateException("Failed to create ViewModel")
             val preferencesRepository = PreferencesRepository(applicationContext)
+            viewModel = AttendanceViewModel(repo, preferencesRepository)
+            val vm = viewModel ?: throw IllegalStateException("Failed to create ViewModel")
 
             setContent {
                 AttendanceTrackerTheme {

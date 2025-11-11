@@ -46,6 +46,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -82,6 +84,9 @@ fun StatisticsScreen(
     viewModel: AttendanceViewModel,
     onNavigateBack: () -> Unit
 ) {
+    // Haptic feedback
+    val haptic = LocalHapticFeedback.current
+
     // Collect state from ViewModel
     val overallStats by viewModel.overallStatistics.collectAsState()
     val memberStats by viewModel.memberStatistics.collectAsState()
@@ -165,7 +170,10 @@ fun StatisticsScreen(
                         item {
                             MemberStatisticsHeader(
                                 currentSort = currentSort,
-                                onSortChange = { viewModel.setMemberStatisticsSort(it) }
+                                onSortChange = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.setMemberStatisticsSort(it)
+                                }
                             )
                         }
 

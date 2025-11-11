@@ -25,6 +25,7 @@ class PreferencesRepository(private val context: Context) {
         val SPREADSHEET_ID = stringPreferencesKey("spreadsheet_id")
         val MORNING_NOTIFICATION = booleanPreferencesKey("morning_notification")
         val EVENING_NOTIFICATION = booleanPreferencesKey("evening_notification")
+        private val STATISTICS_SORT_KEY = stringPreferencesKey("statistics_sort")
     }
 
     /**
@@ -73,5 +74,27 @@ class PreferencesRepository(private val context: Context) {
         return context.dataStore.data.map { preferences ->
             preferences[SPREADSHEET_ID] ?: ""
         }.first()
+    }
+
+    /**
+     * Flow of statistics sort preference that emits whenever the preference changes.
+     */
+    val statisticsSortPreference: Flow<MemberStatisticsSortBy> = context.dataStore.data
+        .map { preferences ->
+            val sortName = preferences[STATISTICS_SORT_KEY] ?: MemberStatisticsSortBy.ATTENDANCE_HIGH.name
+            try {
+                MemberStatisticsSortBy.valueOf(sortName)
+            } catch (e: IllegalArgumentException) {
+                MemberStatisticsSortBy.ATTENDANCE_HIGH // Default fallback
+            }
+        }
+
+    /**
+     * Sets the statistics sort preference.
+     */
+    suspend fun setStatisticsSortPreference(sort: MemberStatisticsSortBy) {
+        context.dataStore.edit { preferences ->
+            preferences[STATISTICS_SORT_KEY] = sort.name
+        }
     }
 }
