@@ -4,6 +4,8 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Build
+import android.util.Log
+import com.attendancetracker.BuildConfig
 import com.attendancetracker.data.models.AttendanceRecord
 import com.attendancetracker.data.models.Category
 import com.attendancetracker.data.models.Member
@@ -325,10 +327,26 @@ class GoogleSheetsService(
                 }
 
                 // Identify date columns (cells containing "/" in the header)
+                // Also deduplicate by date and filter out future dates
+                val today = java.time.LocalDate.now()
+                val seenDates = mutableSetOf<java.time.LocalDate>()
                 val dateColumns = headerRow.mapIndexedNotNull { index, cell ->
                     val cellValue = cell?.toString()?.trim() ?: ""
                     if (cellValue.contains("/")) {
-                        index to cellValue
+                        val parsedDate = AttendanceRecord.parseDateFromSheet(cellValue)
+                        // Only include if: (1) not a duplicate, (2) not in the future
+                        if (parsedDate != null && !parsedDate.isAfter(today) && seenDates.add(parsedDate)) {
+                            index to cellValue
+                        } else {
+                            if (BuildConfig.DEBUG && parsedDate != null) {
+                                if (parsedDate.isAfter(today)) {
+                                    Log.d("GoogleSheetsService", "Skipping future date column: $cellValue ($parsedDate)")
+                                } else {
+                                    Log.d("GoogleSheetsService", "Skipping duplicate date column: $cellValue (already have $parsedDate)")
+                                }
+                            }
+                            null
+                        }
                     } else {
                         null
                     }
@@ -353,6 +371,11 @@ class GoogleSheetsService(
                         // Find member by row index (adding 1 because row 0 is header)
                         val member = members.find { it.rowIndex == rowIndex + 1 }
                         if (member != null) {
+                            // DEBUG: Log cell value and presence detection for first few members
+                            if (BuildConfig.DEBUG && member.name.contains("Stormie", ignoreCase = true)) {
+                                Log.d("GoogleSheetsService", "Date: $dateString, Member: ${member.name}, Cell: '$cell', IsPresent: $isPresent")
+                            }
+
                             // CRITICAL FIX: Build attendance map instead of mutating members
                             attendanceMap[member.id]?.put(dateString, isPresent)
                             if (isPresent) {
@@ -368,6 +391,16 @@ class GoogleSheetsService(
                 val updatedMembers = members.map { member ->
                     val attendanceHistory = attendanceMap[member.id] ?: emptyMap()
                     member.copy(attendanceHistory = attendanceHistory)
+                }
+
+                // DEBUG: Log summary for Stormie Harlan
+                if (BuildConfig.DEBUG) {
+                    val stormie = updatedMembers.find { it.name.contains("Stormie", ignoreCase = true) }
+                    if (stormie != null) {
+                        val totalPresent = stormie.attendanceHistory.count { it.value }
+                        Log.d("GoogleSheetsService", "Stormie Harlan - Total attendance entries: ${stormie.attendanceHistory.size}, Present count: $totalPresent")
+                    }
+                    Log.d("GoogleSheetsService", "Total attendance records created: ${attendanceRecords.size}")
                 }
 
                 // Sort records by date and return both updated members and records

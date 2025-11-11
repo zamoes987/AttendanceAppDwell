@@ -433,8 +433,7 @@ fun TrendChart(trendPoints: List<com.attendancetracker.data.models.AttendanceTre
                     progress = point.attendanceCount.toFloat() / maxAttendance.toFloat(),
                     modifier = Modifier
                         .weight(1f)
-                        .height(20.dp),
-                    color = MaterialTheme.colorScheme.primary,
+                        .height(20.dp)
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -539,8 +538,7 @@ fun CategoryStatisticsRow(stat: CategoryStatistics) {
             progress = (stat.averageAttendancePercentage / 100.0).toFloat(),
             modifier = Modifier
                 .fillMaxWidth()
-                .height(8.dp),
-            color = categoryColor,
+                .height(8.dp)
         )
 
         Spacer(modifier = Modifier.height(2.dp))
