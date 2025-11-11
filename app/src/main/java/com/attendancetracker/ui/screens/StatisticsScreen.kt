@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.attendancetracker.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -428,7 +430,7 @@ fun TrendChart(trendPoints: List<com.attendancetracker.data.models.AttendanceTre
 
                 // Progress bar representing attendance
                 LinearProgressIndicator(
-                    progress = { point.attendanceCount.toFloat() / maxAttendance.toFloat() },
+                    progress = point.attendanceCount.toFloat() / maxAttendance.toFloat(),
                     modifier = Modifier
                         .weight(1f)
                         .height(20.dp),
@@ -534,7 +536,7 @@ fun CategoryStatisticsRow(stat: CategoryStatistics) {
 
         // Progress bar
         LinearProgressIndicator(
-            progress = { (stat.averageAttendancePercentage / 100.0).toFloat() },
+            progress = (stat.averageAttendancePercentage / 100.0).toFloat(),
             modifier = Modifier
                 .fillMaxWidth()
                 .height(8.dp),
