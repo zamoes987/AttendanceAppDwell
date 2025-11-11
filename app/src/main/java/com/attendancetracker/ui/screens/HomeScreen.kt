@@ -316,12 +316,12 @@ fun HomeScreen(
     }
 
     // Date Picker Dialog
-    // Move state outside conditional to prevent recreation on recomposition
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-    )
-
     if (showDatePicker) {
+        // Create state inside dialog so it updates with current date each time dialog opens
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = currentDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
