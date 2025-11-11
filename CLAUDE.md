@@ -242,6 +242,16 @@ Single-Activity architecture with Navigation Compose:
 - **Java Version**: 17
 - **Compose BOM**: 2023.10.01
 - **Kotlin Version**: Matches Android Gradle Plugin version
+- **BuildConfig**: Explicitly enabled in `app/build.gradle.kts` (required for AGP 8.0+)
+
+**Important**: Android Gradle Plugin 8.0+ disables BuildConfig generation by default. The project requires:
+```kotlin
+buildFeatures {
+    compose = true
+    buildConfig = true  // Required for BuildConfig.DEBUG usage
+}
+```
+Do not remove `buildConfig = true` - MainActivity.kt uses `BuildConfig.DEBUG` for conditional logging (12 references)
 
 ### Dependencies
 Key libraries:
@@ -281,7 +291,6 @@ The app underwent comprehensive stability audits in January 2025, resulting in f
 
 **UI Layer (Compose State Management):**
 - ✅ `HomeScreen.kt`: Fixed DatePicker state recreation bug - selections now preserved across recompositions (line 320)
-- ✅ `HomeScreen.kt`: Fixed timezone bug causing off-by-one date errors (line 332)
 - ✅ `HistoryScreen.kt`: Fixed unsafe list access that could throw NoSuchElementException (line 78)
 - ✅ `Navigation.kt`: Fixed SettingsViewModel memory leak from repeated instantiation (line 50)
 
@@ -314,6 +323,27 @@ The app underwent comprehensive stability audits in January 2025, resulting in f
 - ❌ Crashes from Google account removal
 - ❌ Biometric callback crashes after Activity destruction
 
+### Recent Date Picker Fixes (Commits: 442a7d4, 9e739eb)
+**Critical UX bugs that made date selection unusable**
+
+**Issue 1: Stale Date State (Commit: 442a7d4)**
+- Problem: DatePicker showed wrong/stale date when reopened, causing "jumps to previous date" bug
+- Root cause: `rememberDatePickerState` was outside `if (showDatePicker)` block, initialized once and never updated
+- Fix: Moved `datePickerState` creation inside the dialog conditional (HomeScreen.kt:319-323)
+- Result: Picker now recreates with current date value each time it opens
+
+**Issue 2: Timezone Off-By-One Bug (Commit: 9e739eb)**
+- Problem: Selecting Nov 6 in picker would select Nov 5 - always one day off
+- Root cause: Material3 DatePicker returns UTC midnight, but code converted with `ZoneId.systemDefault()`
+- Example: User clicks Nov 6 → Picker gives `Nov 6 00:00 UTC` → Convert to EST → `Nov 5 19:00 EST` → Extract date → **Nov 5** ❌
+- Fix: Changed `ZoneId.systemDefault()` to `ZoneId.of("UTC")` on line 334
+- Result: User clicks Nov 6 → Picker gives `Nov 6 00:00 UTC` → Convert with UTC → `Nov 6 00:00 UTC` → Extract → **Nov 6** ✅
+
+**Critical Pattern for Future DatePicker Work:**
+- Initialize picker WITH local timezone: `atStartOfDay(ZoneId.systemDefault())` (converts local → UTC for picker)
+- Read picker selection WITH UTC: `.atZone(ZoneId.of("UTC"))` (converts UTC → LocalDate without offset)
+- This asymmetry is correct and required for Material3 DatePicker
+
 ### Testing Recommendations
 To verify stability fixes:
 1. **Rotation test**: Rotate device multiple times rapidly - verify no memory leaks or crashes
@@ -324,6 +354,8 @@ To verify stability fixes:
 6. **Data integrity**: Save attendance, kill network mid-save - verify no partial data corruption
 7. **Account test**: Remove Google account while app running - verify graceful sign-out
 8. **Biometric test**: Background app during biometric prompt - verify no crashes on resume
+9. **Date picker test**: Open picker, select date, reopen picker - verify shows newly selected date (not stale)
+10. **Timezone test**: Select any date in picker - verify that exact date is selected (no off-by-one)
 
 ## Testing Notes
 
