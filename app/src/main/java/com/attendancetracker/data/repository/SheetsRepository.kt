@@ -86,7 +86,6 @@ class SheetsRepository(
             }
 
             val membersList = membersResult.getOrNull() ?: emptyList()
-            _members.value = membersList
 
             // Load attendance history for all members
             val attendanceResult = sheetsService.readAllAttendance(membersList)
@@ -96,7 +95,11 @@ class SheetsRepository(
                 return Result.failure(exception ?: Exception("Unknown error loading attendance"))
             }
 
-            val records = attendanceResult.getOrNull() ?: emptyList()
+            // CRITICAL FIX: Extract both updated members and attendance records
+            val (updatedMembers, records) = attendanceResult.getOrNull()
+                ?: (emptyList<Member>() to emptyList())
+
+            _members.value = updatedMembers  // Members now have populated attendanceHistory
             _attendanceRecords.value = records
 
             Result.success(Unit)

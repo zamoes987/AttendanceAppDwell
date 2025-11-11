@@ -197,7 +197,10 @@ class GoogleSheetsService(
      * Reads attendance data for a specific date.
      *
      * Finds the column for the given date, reads attendance marks for that column,
-     * and updates the attendance history for each member.
+     * and creates an AttendanceRecord with the present members.
+     *
+     * NOTE: This method does NOT modify the member objects. Use readAllAttendance()
+     * to get members with populated attendance history.
      *
      * @param dateString The date in sheet format (e.g., "11/06/25")
      * @param members The list of members to match attendance records against
@@ -258,11 +261,10 @@ class GoogleSheetsService(
 
                 // Find member by row index (adding 1 because row 0 is header)
                 val member = members.find { it.rowIndex == rowIndex + 1 }
-                if (member != null) {
-                    member.markAttendance(dateString, isPresent)
-                    if (isPresent) {
-                        record.markPresent(member.id, member.category)
-                    }
+                if (member != null && isPresent) {
+                    // CRITICAL FIX: Removed broken markAttendance() call
+                    // This method only returns AttendanceRecord, not updated members
+                    record.markPresent(member.id, member.category)
                 }
             }
 
@@ -286,12 +288,12 @@ class GoogleSheetsService(
      * Reads all attendance data from the sheet.
      *
      * Reads the entire sheet, identifies all date columns, and populates
-     * attendance history for all members.
+     * attendance history for all members using immutable pattern.
      *
      * @param members The list of members to populate with attendance history
-     * @return Result containing list of AttendanceRecord objects, or failure with exception
+     * @return Result containing Pair of (updated members with attendance history, AttendanceRecord list), or failure with exception
      */
-    suspend fun readAllAttendance(members: List<Member>): Result<List<AttendanceRecord>> =
+    suspend fun readAllAttendance(members: List<Member>): Result<Pair<List<Member>, List<AttendanceRecord>>> =
         withContext(Dispatchers.IO) {
             // ISSUE #2 FIX: Check network connectivity before API call
             if (!isNetworkAvailable()) {
@@ -310,11 +312,17 @@ class GoogleSheetsService(
                 )
 
                 if (values.isEmpty()) {
-                    return@withContext Result.success(emptyList())
+                    return@withContext Result.success(Pair(members, emptyList()))
                 }
 
                 val headerRow = values[0]
                 val attendanceRecords = mutableListOf<AttendanceRecord>()
+
+                // Build attendance map for all members (immutable pattern)
+                val attendanceMap = mutableMapOf<String, MutableMap<String, Boolean>>()
+                members.forEach { member ->
+                    attendanceMap[member.id] = mutableMapOf()
+                }
 
                 // Identify date columns (cells containing "/" in the header)
                 val dateColumns = headerRow.mapIndexedNotNull { index, cell ->
@@ -345,7 +353,8 @@ class GoogleSheetsService(
                         // Find member by row index (adding 1 because row 0 is header)
                         val member = members.find { it.rowIndex == rowIndex + 1 }
                         if (member != null) {
-                            member.markAttendance(dateString, isPresent)
+                            // CRITICAL FIX: Build attendance map instead of mutating members
+                            attendanceMap[member.id]?.put(dateString, isPresent)
                             if (isPresent) {
                                 record.markPresent(member.id, member.category)
                             }
@@ -355,8 +364,14 @@ class GoogleSheetsService(
                     attendanceRecords.add(record)
                 }
 
-                // Sort records by date
-                Result.success(attendanceRecords.sortedBy { it.date })
+                // CRITICAL FIX: Create new members with attendance history (immutable pattern)
+                val updatedMembers = members.map { member ->
+                    val attendanceHistory = attendanceMap[member.id] ?: emptyMap()
+                    member.copy(attendanceHistory = attendanceHistory)
+                }
+
+                // Sort records by date and return both updated members and records
+                Result.success(Pair(updatedMembers, attendanceRecords.sortedBy { it.date }))
             } catch (e: UserRecoverableAuthIOException) {
                 // ISSUE #1 FIX: Handle OAuth token expiration
                 Result.failure(Exception("Authentication expired. Please sign in again."))
