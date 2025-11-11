@@ -7,9 +7,13 @@ import com.attendancetracker.data.models.AttendanceSummary
 import com.attendancetracker.data.models.Category
 import com.attendancetracker.data.models.Member
 import com.attendancetracker.data.models.groupByCategory
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
@@ -47,19 +51,42 @@ class SheetsRepository(
     accountName: String
 ) {
     private val sheetsService = GoogleSheetsService(context, accountName)
+    private val preferencesRepository = PreferencesRepository(context)
+
+    // Coroutine scope for collecting flows
+    private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     // State flows for reactive data management
     private val _members = MutableStateFlow<List<Member>>(emptyList())
     val members: Flow<List<Member>> = _members.asStateFlow()
 
+    // Raw attendance records (before filtering skipped dates)
+    private val _rawAttendanceRecords = MutableStateFlow<List<AttendanceRecord>>(emptyList())
+
+    // Filtered attendance records (exposed to ViewModel - excludes skipped dates)
     private val _attendanceRecords = MutableStateFlow<List<AttendanceRecord>>(emptyList())
     val attendanceRecords: Flow<List<AttendanceRecord>> = _attendanceRecords.asStateFlow()
+
+    // Skipped dates state
+    private val _skippedDates = MutableStateFlow<Set<String>>(emptySet())
+    val skippedDates: Flow<Set<String>> = _skippedDates.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: Flow<Boolean> = _isLoading.asStateFlow()
 
     private val _error = MutableStateFlow<String?>(null)
     val error: Flow<String?> = _error.asStateFlow()
+
+    init {
+        // Collect skipped dates from PreferencesRepository
+        repositoryScope.launch {
+            preferencesRepository.skippedDatesFlow.collect { skippedDateStrings ->
+                _skippedDates.value = skippedDateStrings
+                // Re-filter attendance records when skipped dates change
+                _attendanceRecords.value = _rawAttendanceRecords.value.excludingSkippedDates()
+            }
+        }
+    }
 
     /**
      * Loads all data from Google Sheets (members and attendance history).
@@ -100,7 +127,8 @@ class SheetsRepository(
                 ?: (emptyList<Member>() to emptyList())
 
             _members.value = updatedMembers  // Members now have populated attendanceHistory
-            _attendanceRecords.value = records
+            _rawAttendanceRecords.value = records  // Store raw records
+            _attendanceRecords.value = records.excludingSkippedDates()  // Store filtered records
 
             Result.success(Unit)
         } catch (e: Exception) {
@@ -237,8 +265,10 @@ class SheetsRepository(
             existingRecords + newRecord
         }
 
-        // Update state with new sorted list
-        _attendanceRecords.value = updatedRecords.sortedBy { it.date }
+        // Update state with new sorted list (both raw and filtered)
+        val sortedRecords = updatedRecords.sortedBy { it.date }
+        _rawAttendanceRecords.value = sortedRecords
+        _attendanceRecords.value = sortedRecords.excludingSkippedDates()
     }
 
     /**
@@ -505,6 +535,38 @@ class SheetsRepository(
      */
     fun clearError() {
         _error.value = null
+    }
+
+    // ========== SKIPPED DATES METHODS ==========
+
+    /**
+     * Toggles whether a date is marked as skipped ("No Meeting").
+     * If the date is currently skipped, it will be unskipped.
+     * If the date is not skipped, it will be marked as skipped.
+     *
+     * @param date The date to toggle
+     */
+    suspend fun toggleDateSkipped(date: LocalDate) {
+        val dateString = date.toString() // ISO-8601 format (yyyy-MM-dd)
+
+        if (dateString in _skippedDates.value) {
+            // Unskip the date
+            preferencesRepository.removeSkippedDate(date)
+        } else {
+            // Skip the date
+            preferencesRepository.addSkippedDate(date)
+        }
+    }
+
+    /**
+     * Extension function to filter out skipped dates from attendance records.
+     * Used internally to create the filtered view of attendance records.
+     */
+    private fun List<AttendanceRecord>.excludingSkippedDates(): List<AttendanceRecord> {
+        val skipped = _skippedDates.value
+        return this.filter { record ->
+            !skipped.contains(record.date.toString())
+        }
     }
 
     // ========== STATISTICS METHODS ==========

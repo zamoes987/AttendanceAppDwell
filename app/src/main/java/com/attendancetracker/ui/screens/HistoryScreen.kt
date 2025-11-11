@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Block
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.TrendingDown
@@ -68,6 +70,7 @@ fun HistoryScreen(
 ) {
     // Collect state from ViewModel
     val attendanceRecords by viewModel.attendanceRecords.collectAsState()
+    val skippedDates by viewModel.skippedDates.collectAsState()
 
     // Get summaries from repository (accessing repository through viewModel is not ideal
     // but works for this implementation)
@@ -126,7 +129,14 @@ fun HistoryScreen(
                         items = summaries,
                         key = { summary -> summary.weekOf.toString() }
                     ) { summary ->
-                        AttendanceSummaryCard(summary)
+                        val isSkipped = skippedDates.contains(summary.weekOf.toString())
+                        AttendanceSummaryCard(
+                            summary = summary,
+                            isSkipped = isSkipped,
+                            onToggleSkipped = {
+                                viewModel.toggleDateSkipped(summary.weekOf)
+                            }
+                        )
                     }
 
                     // Bottom spacing
@@ -146,10 +156,16 @@ fun HistoryScreen(
  * and trend indicator if applicable.
  *
  * @param summary The attendance summary to display
+ * @param isSkipped Whether this date is marked as "No Meeting"
+ * @param onToggleSkipped Callback to toggle the skipped status
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun AttendanceSummaryCard(summary: AttendanceSummary) {
+fun AttendanceSummaryCard(
+    summary: AttendanceSummary,
+    isSkipped: Boolean = false,
+    onToggleSkipped: () -> Unit = {}
+) {
     // Format date for display
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMMM d, yyyy")
     val formattedDate = summary.weekOf.format(dateFormatter)
@@ -160,6 +176,13 @@ fun AttendanceSummaryCard(summary: AttendanceSummary) {
             .padding(horizontal = 16.dp, vertical = 8.dp),
         elevation = CardDefaults.cardElevation(
             defaultElevation = 2.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSkipped) {
+                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            } else {
+                MaterialTheme.colorScheme.surface
+            }
         )
     ) {
         Column(
@@ -167,12 +190,40 @@ fun AttendanceSummaryCard(summary: AttendanceSummary) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Date
-            Text(
-                text = formattedDate,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            // Date header with skip/unskip button
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = formattedDate,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    if (isSkipped) {
+                        Text(
+                            text = "⊘ No Meeting",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+
+                // Skip/Unskip button
+                IconButton(onClick = onToggleSkipped) {
+                    Icon(
+                        imageVector = if (isSkipped) Icons.Default.CheckCircle else Icons.Default.Block,
+                        contentDescription = if (isSkipped) "Mark as Meeting" else "Mark as No Meeting",
+                        tint = if (isSkipped) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+            }
 
             Spacer(modifier = Modifier.size(8.dp))
 

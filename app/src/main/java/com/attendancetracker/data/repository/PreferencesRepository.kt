@@ -6,11 +6,13 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.attendancetracker.data.models.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import java.time.LocalDate
 
 /**
  * Repository for managing app preferences using DataStore.
@@ -26,6 +28,7 @@ class PreferencesRepository(private val context: Context) {
         val MORNING_NOTIFICATION = booleanPreferencesKey("morning_notification")
         val EVENING_NOTIFICATION = booleanPreferencesKey("evening_notification")
         private val STATISTICS_SORT_KEY = stringPreferencesKey("statistics_sort")
+        private val SKIPPED_DATES_KEY = stringSetPreferencesKey("skipped_dates")
     }
 
     /**
@@ -95,6 +98,62 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setStatisticsSortPreference(sort: MemberStatisticsSortBy) {
         context.dataStore.edit { preferences ->
             preferences[STATISTICS_SORT_KEY] = sort.name
+        }
+    }
+
+    /**
+     * Flow of skipped dates (dates marked as "No Meeting").
+     * Emits whenever the set of skipped dates changes.
+     * Dates are stored as ISO-8601 strings (yyyy-MM-dd).
+     */
+    val skippedDatesFlow: Flow<Set<String>> = context.dataStore.data
+        .map { preferences ->
+            preferences[SKIPPED_DATES_KEY] ?: emptySet()
+        }
+
+    /**
+     * Marks a date as skipped ("No Meeting").
+     * The date will be excluded from all statistics calculations.
+     *
+     * @param date The date to mark as skipped
+     */
+    suspend fun addSkippedDate(date: LocalDate) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[SKIPPED_DATES_KEY] ?: emptySet()
+            preferences[SKIPPED_DATES_KEY] = current + date.toString()
+        }
+    }
+
+    /**
+     * Removes a date from the skipped list.
+     * The date will be included in statistics calculations again.
+     *
+     * @param date The date to unskip
+     */
+    suspend fun removeSkippedDate(date: LocalDate) {
+        context.dataStore.edit { preferences ->
+            val current = preferences[SKIPPED_DATES_KEY] ?: emptySet()
+            preferences[SKIPPED_DATES_KEY] = current - date.toString()
+        }
+    }
+
+    /**
+     * Checks if a specific date is marked as skipped.
+     *
+     * @param date The date to check
+     * @return true if the date is skipped, false otherwise
+     */
+    suspend fun isDateSkipped(date: LocalDate): Boolean {
+        return context.dataStore.data.first()[SKIPPED_DATES_KEY]?.contains(date.toString()) ?: false
+    }
+
+    /**
+     * Clears all skipped dates.
+     * Useful for reset functionality or troubleshooting.
+     */
+    suspend fun clearSkippedDates() {
+        context.dataStore.edit { preferences ->
+            preferences.remove(SKIPPED_DATES_KEY)
         }
     }
 }

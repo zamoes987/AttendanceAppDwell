@@ -93,6 +93,7 @@ fun HomeScreen(
     val showSuccess by viewModel.showSaveSuccess.collectAsState()
     val selectedMembers by viewModel.selectedMembers.collectAsState()
     val currentDate by viewModel.currentDate.collectAsState()
+    val isCurrentDateSkipped = viewModel.isDateSkipped(currentDate)
 
     // Date picker dialog state
     var showDatePicker by remember { mutableStateOf(false) }
@@ -197,19 +198,20 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
+            val canActuallySave = uiState.canSave && !isCurrentDateSkipped
             ExtendedFloatingActionButton(
                 onClick = {
-                    if (uiState.canSave) {
+                    if (canActuallySave) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.saveAttendance()
                     }
                 },
-                containerColor = if (uiState.canSave) {
+                containerColor = if (canActuallySave) {
                     MaterialTheme.colorScheme.primary
                 } else {
                     MaterialTheme.colorScheme.surfaceVariant
                 },
-                contentColor = if (uiState.canSave) {
+                contentColor = if (canActuallySave) {
                     MaterialTheme.colorScheme.onPrimary
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
@@ -220,7 +222,13 @@ fun HomeScreen(
                     contentDescription = "Save"
                 )
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("Save Attendance (${uiState.selectedCount})")
+                Text(
+                    if (isCurrentDateSkipped) {
+                        "No Meeting"
+                    } else {
+                        "Save Attendance (${uiState.selectedCount})"
+                    }
+                )
             }
         }
     ) { paddingValues ->
@@ -250,6 +258,35 @@ fun HomeScreen(
                             message = "Attendance saved successfully!",
                             onDismiss = { viewModel.dismissSuccessMessage() }
                         )
+                    }
+
+                    // Show skipped date indicator
+                    if (isCurrentDateSkipped) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                androidx.compose.material3.Icon(
+                                    imageVector = androidx.compose.material.icons.Icons.Default.CalendarToday,
+                                    contentDescription = "No Meeting",
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "⊘ This date is marked as No Meeting",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
                     }
 
                     // Bottom action bar

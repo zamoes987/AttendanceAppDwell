@@ -64,6 +64,9 @@ class AttendanceViewModel(
     val attendanceRecords: StateFlow<List<AttendanceRecord>> = repository.attendanceRecords
         .stateIn(viewModelScope, SharingStarted.Lazily, emptyList())
 
+    val skippedDates: StateFlow<Set<String>> = repository.skippedDates
+        .stateIn(viewModelScope, SharingStarted.Lazily, emptySet())
+
     val isLoading: StateFlow<Boolean> = repository.isLoading
         .stateIn(viewModelScope, SharingStarted.Lazily, false)
 
@@ -425,5 +428,27 @@ class AttendanceViewModel(
      */
     fun refreshStatistics() {
         calculateStatistics()
+    }
+
+    /**
+     * Toggles whether a date is marked as skipped ("No Meeting").
+     * Skipped dates are excluded from all statistics calculations.
+     *
+     * @param date The date to toggle
+     */
+    fun toggleDateSkipped(date: LocalDate) {
+        viewModelScope.launch {
+            repository.toggleDateSkipped(date)
+        }
+    }
+
+    /**
+     * Checks if a specific date is currently marked as skipped.
+     *
+     * @param date The date to check
+     * @return true if the date is skipped, false otherwise
+     */
+    fun isDateSkipped(date: LocalDate): Boolean {
+        return skippedDates.value.contains(date.toString())
     }
 }
