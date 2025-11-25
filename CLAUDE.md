@@ -540,6 +540,65 @@ To verify stability fixes:
 10. **Timezone test**: Select any date in picker - verify that exact date is selected (no off-by-one)
 11. **Statistics test**: Verify streaks calculate correctly (not all 0), date range excludes future dates
 
+## Recent Feature Additions (November 2025)
+
+### Submit Attendance to Dwell CC Integration
+**Location**: HomeScreen - full-width button above member list action bar
+**Purpose**: Direct link to submit final attendance to Dwell CC organization portal
+
+**Implementation Details**:
+- Full-width button with secondary color styling for prominence
+- Opens Dwell CC submission URL in device browser via Intent
+- URL includes query parameters for tracking and group identification
+- Positioned above Select All/Clear All buttons for easy access
+- **Important**: Button placement in TopAppBar was causing date picker to be obscured - moved to action bar area for better UX
+
+**File**: `ui/screens/HomeScreen.kt` lines 310-328
+
+### Hide Infrequent Members Feature
+**Location**: MembersScreen TopAppBar - visibility toggle icon button
+**Purpose**: Filter out members with low attendance (<40%) to focus on regular attendees
+
+**Implementation Details**:
+- Toggle button in TopAppBar showing eye icon (visible) or crossed-eye icon (hidden)
+- Filter threshold: Members with attendance rate < 40% are considered "infrequent"
+- State managed in AttendanceViewModel via `hideInfrequentMembers` StateFlow
+- Filtering applied in `uiState` combined flow - affects all screens using member list
+- Categories with all members filtered out are removed from display
+- Toggle state persists during app session (not stored in DataStore currently)
+
+**Architecture**:
+- ViewModel: `AttendanceViewModel.toggleHideInfrequentMembers()` method
+- State: `_hideInfrequentMembers` MutableStateFlow (lines 112-113)
+- Filtering: Applied in `uiState` combine flow (lines 127-155)
+- UI: MembersScreen TopAppBar actions (lines 103-112)
+
+**Calculation**: Uses `Member.getAttendancePercentage()` which returns percentage based on attendance history
+
+### Dynamic Select All/Uncheck All Toggle
+**Location**: HomeScreen action bar (above member list)
+**Purpose**: Smart button that changes based on selection state
+
+**Behavior**:
+- When all members selected → displays "Uncheck All" and calls `clearAll()`
+- When any member unselected → displays "Select All" and calls `selectAll()`
+- Provides haptic feedback on interaction
+- Condition: `uiState.selectedCount == uiState.totalMembers && uiState.totalMembers > 0`
+
+**File**: `ui/screens/HomeScreen.kt` lines 337-350
+
+**Why This Matters**: Reduces UI clutter by having one smart button instead of two separate buttons, improves UX for bulk selection operations
+
+### UI Structure Changes
+**HomeScreen Action Bar** now uses Column layout instead of Row:
+1. Submit Attendance button (full-width, top)
+2. Row containing:
+   - Select All/Uncheck All toggle
+   - Clear All button
+   - Member count display
+
+This change resolved date picker visibility issues caused by overcrowded TopAppBar.
+
 ## Testing Notes
 
 No comprehensive test suite currently implemented. When adding tests:
