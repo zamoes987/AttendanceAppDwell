@@ -170,19 +170,6 @@ fun HomeScreen(
                         )
                     }
 
-                    // Submit Attendance button (opens Dwell CC submission page)
-                    IconButton(onClick = {
-                        val submitUrl = "https://www.dwellcc.org/page/11826?rckipid=EAAAAI8fK!2fXb!2fM90kNNxdXvG1!2bnJSQZY6DszwhSHHN9Op54IBzWCxFtD7!2bAasptQyuNH3cvc1iHs1Mv3Cl7f7P8TrEM!3d&GroupId=188431&Occurrence=2025-11-20T19%3A00%3A00&returnToPage=https://dwellcc.org"
-                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
-                        context.startActivity(intent)
-                    }) {
-                        Icon(
-                            imageVector = Icons.Default.OpenInBrowser,
-                            contentDescription = "Submit Attendance",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
                     // History button
                     IconButton(onClick = onNavigateToHistory) {
                         Icon(
@@ -315,48 +302,74 @@ fun HomeScreen(
                         color = MaterialTheme.colorScheme.surface,
                         shadowElevation = 4.dp
                     ) {
-                        Row(
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
+                                .padding(16.dp)
                         ) {
-                            // Select All / Uncheck All button (dynamic based on selection state)
-                            val allSelected = uiState.selectedCount == uiState.totalMembers && uiState.totalMembers > 0
+                            // Submit Attendance to Dwell CC button
                             Button(
                                 onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    if (allSelected) {
-                                        viewModel.clearAll()
-                                    } else {
-                                        viewModel.selectAll()
+                                    val submitUrl = "https://www.dwellcc.org/page/11826?rckipid=EAAAAI8fK!2fXb!2fM90kNNxdXvG1!2bnJSQZY6DszwhSHHN9Op54IBzWCxFtD7!2bAasptQyuNH3cvc1iHs1Mv3Cl7f7P8TrEM!3d&GroupId=188431&Occurrence=2025-11-20T19%3A00%3A00&returnToPage=https://dwellcc.org"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
+                                    context.startActivity(intent)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                                    containerColor = MaterialTheme.colorScheme.secondary
+                                )
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.OpenInBrowser,
+                                    contentDescription = "Submit"
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Submit Attendance to Dwell CC")
+                            }
+
+                            Spacer(modifier = Modifier.size(12.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // Select All / Uncheck All button (dynamic based on selection state)
+                                val allSelected = uiState.selectedCount == uiState.totalMembers && uiState.totalMembers > 0
+                                Button(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        if (allSelected) {
+                                            viewModel.clearAll()
+                                        } else {
+                                            viewModel.selectAll()
+                                        }
                                     }
+                                ) {
+                                    Text(if (allSelected) "Uncheck All" else "Select All")
                                 }
-                            ) {
-                                Text(if (allSelected) "Uncheck All" else "Select All")
-                            }
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
-                            // Clear All button
-                            OutlinedButton(
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.clearAll()
+                                // Clear All button
+                                OutlinedButton(
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.clearAll()
+                                    }
+                                ) {
+                                    Text("Clear All")
                                 }
-                            ) {
-                                Text("Clear All")
+
+                                Spacer(modifier = Modifier.weight(1f))
+
+                                // Count display
+                                Text(
+                                    text = "${uiState.selectedCount} / ${uiState.totalMembers}",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                             }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            // Count display
-                            Text(
-                                text = "${uiState.selectedCount} / ${uiState.totalMembers}",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = MaterialTheme.colorScheme.primary
-                            )
                         }
                     }
 
