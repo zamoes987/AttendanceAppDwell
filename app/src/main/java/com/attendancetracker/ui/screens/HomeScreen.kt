@@ -16,6 +16,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
@@ -45,7 +46,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -85,6 +89,9 @@ fun HomeScreen(
 ) {
     // Haptic feedback
     val haptic = LocalHapticFeedback.current
+
+    // Get context for opening URLs
+    val context = LocalContext.current
 
     // Collect state from ViewModel
     val uiState by viewModel.uiState.collectAsState()
@@ -159,6 +166,19 @@ fun HomeScreen(
                         Icon(
                             imageVector = Icons.Default.BarChart,
                             contentDescription = "Statistics",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+
+                    // Submit Attendance button (opens Dwell CC submission page)
+                    IconButton(onClick = {
+                        val submitUrl = "https://www.dwellcc.org/page/11826?rckipid=EAAAAI8fK!2fXb!2fM90kNNxdXvG1!2bnJSQZY6DszwhSHHN9Op54IBzWCxFtD7!2bAasptQyuNH3cvc1iHs1Mv3Cl7f7P8TrEM!3d&GroupId=188431&Occurrence=2025-11-20T19%3A00%3A00&returnToPage=https://dwellcc.org"
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
+                        context.startActivity(intent)
+                    }) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInBrowser,
+                            contentDescription = "Submit Attendance",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -302,14 +322,19 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Select All button
+                            // Select All / Uncheck All button (dynamic based on selection state)
+                            val allSelected = uiState.selectedCount == uiState.totalMembers && uiState.totalMembers > 0
                             Button(
                                 onClick = {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.selectAll()
+                                    if (allSelected) {
+                                        viewModel.clearAll()
+                                    } else {
+                                        viewModel.selectAll()
+                                    }
                                 }
                             ) {
-                                Text("Select All")
+                                Text(if (allSelected) "Uncheck All" else "Select All")
                             }
 
                             Spacer(modifier = Modifier.width(8.dp))

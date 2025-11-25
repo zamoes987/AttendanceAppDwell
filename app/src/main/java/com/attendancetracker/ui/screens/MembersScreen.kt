@@ -15,6 +15,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -69,6 +71,7 @@ fun MembersScreen(
     val uiState by viewModel.uiState.collectAsState()
     val members by viewModel.members.collectAsState()
     val memberOperationMessage by viewModel.memberOperationMessage.collectAsState()
+    val hideInfrequentMembers by viewModel.hideInfrequentMembers.collectAsState()
 
     // Dialog states
     var showAddDialog by remember { mutableStateOf(false) }
@@ -97,10 +100,21 @@ fun MembersScreen(
                         )
                     }
                 },
+                actions = {
+                    // Toggle to hide/show infrequent members (<40% attendance)
+                    IconButton(onClick = { viewModel.toggleHideInfrequentMembers() }) {
+                        Icon(
+                            imageVector = if (hideInfrequentMembers) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                            contentDescription = if (hideInfrequentMembers) "Show infrequent members" else "Hide infrequent members",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary,
+                    actionIconContentColor = MaterialTheme.colorScheme.onPrimary
                 )
             )
         },

@@ -140,7 +140,7 @@ Uses **Kotlin StateFlow** for reactive state updates with **thread-safe immutabl
 ## Google Sheets Integration
 
 ### Sheet Structure
-- **Spreadsheet ID**: Currently `11M2RMedyD0pn0cve8MsgOVkXmNorOCSv80hRqMUaft0` (configured in `GoogleSheetsService.kt`)
+- **Spreadsheet ID**: Currently `1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM` (configured in `GoogleSheetsService.kt`)
 - **Tab Name**: "2025" (year-based)
 - **Layout**:
   - Column A: Category markers (OM, XT, FT/RN, V)

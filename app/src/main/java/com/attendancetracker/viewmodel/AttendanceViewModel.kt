@@ -108,6 +108,10 @@ class AttendanceViewModel(
     private val _memberStatisticsSortBy = MutableStateFlow(MemberStatisticsSortBy.ATTENDANCE_HIGH)
     val memberStatisticsSortBy: StateFlow<MemberStatisticsSortBy> = _memberStatisticsSortBy.asStateFlow()
 
+    // Hide Infrequent Guests feature state (members with <40% attendance)
+    private val _hideInfrequentMembers = MutableStateFlow(false)
+    val hideInfrequentMembers: StateFlow<Boolean> = _hideInfrequentMembers.asStateFlow()
+
     // Job reference for cancelling previous statistics calculations
     private var statisticsJob: Job? = null
 
@@ -123,12 +127,24 @@ class AttendanceViewModel(
     val uiState: StateFlow<UiState> = combine(
         members.map { it.groupByCategory() }, // Group once when members change
         _selectedMembers,
-        _currentDate
-    ) { membersByCategory, selected, date ->
+        _currentDate,
+        _hideInfrequentMembers
+    ) { membersByCategory, selected, date, hideInfrequent ->
+        // Filter out infrequent members if toggle is enabled
+        val filteredMembers = if (hideInfrequent) {
+            membersByCategory.mapValues { (_, membersList) ->
+                membersList.filter { member ->
+                    member.getAttendancePercentage() >= 40.0 // Keep members with 40%+ attendance
+                }
+            }.filterValues { it.isNotEmpty() } // Remove empty categories
+        } else {
+            membersByCategory
+        }
+
         UiState(
-            membersByCategory = membersByCategory,
+            membersByCategory = filteredMembers,
             selectedCount = selected.size,
-            totalMembers = membersByCategory.values.sumOf { it.size },
+            totalMembers = filteredMembers.values.sumOf { it.size },
             todayDateString = AttendanceRecord.formatDateForSheet(date),
             canSave = selected.isNotEmpty()
         )
@@ -219,6 +235,14 @@ class AttendanceViewModel(
      */
     fun clearAll() {
         _selectedMembers.value = emptySet()
+    }
+
+    /**
+     * Toggles the hide infrequent members filter.
+     * When enabled, members with <40% attendance are hidden from the list.
+     */
+    fun toggleHideInfrequentMembers() {
+        _hideInfrequentMembers.value = !_hideInfrequentMembers.value
     }
 
     /**
