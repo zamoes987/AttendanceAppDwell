@@ -299,9 +299,9 @@ class MainActivity : FragmentActivity() {
             authManager.saveAuthState(email)
 
             // Initialize repository and ViewModel
-            repository = SheetsRepository(applicationContext, email)
-            val repo = repository ?: throw IllegalStateException("Failed to create repository")
             val preferencesRepository = PreferencesRepository(applicationContext)
+            repository = SheetsRepository(applicationContext, email, preferencesRepository)
+            val repo = repository ?: throw IllegalStateException("Failed to create repository")
             viewModel = AttendanceViewModel(repo, preferencesRepository)
             val vm = viewModel ?: throw IllegalStateException("Failed to create ViewModel")
 

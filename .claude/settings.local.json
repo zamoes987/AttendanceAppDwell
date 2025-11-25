@@ -2,7 +2,21 @@
   "permissions": {
     "allow": [
       "Bash(build_new.txt)",
-      "Bash(C:UserszaneeAppDataLocalAndroidSdkplatform-toolsadb.exe -s R5CX41RRY0M install -r C:UserszaneeAppDevAttendanceappbuildoutputsapkdebugapp-debug.apk)"
+      "Bash(C:UserszaneeAppDataLocalAndroidSdkplatform-toolsadb.exe -s R5CX41RRY0M install -r C:UserszaneeAppDevAttendanceappbuildoutputsapkdebugapp-debug.apk)",
+      "Bash(C:UserszaneeAppDataLocalAndroidSdkplatform-toolsadb.exe -s R5CX41RRY0M logcat -c)",
+      "Bash(timeout:*)",
+      "Bash(adb:*)",
+      "Bash($env:USERPROFILEAppDataLocalAndroidSdkplatform-toolsadb.exe -s R5CX41RRY0M logcat -c)",
+      "Bash(C:/Users/zanee/AppData/Local/Android/Sdk/platform-tools/adb.exe -s R5CX41RRY0M logcat -c)",
+      "Bash(C:/Users/zanee/AppData/Local/Android/Sdk/platform-tools/adb.exe -s R5CX41RRY0M logcat -d)",
+      "Bash(./gradlew.bat assembleDebug)",
+      "Bash(C:/Users/zanee/AppData/Local/Android/Sdk/platform-tools/adb.exe -s R5CX41RRY0M install -r C:/Users/zanee/AppDevAttendance/app/build/outputs/apk/debug/app-debug.apk)",
+      "Bash(C:/Users/zanee/AppData/Local/Android/Sdk/platform-tools/adb.exe -s R5CX41RRY0M shell dumpsys package com.attendancetracker)",
+      "Bash(./gradlew.bat clean assembleDebug)",
+      "Bash(cmd.exe /c \"set JAVA_HOME=C:\\Program Files\\Android\\Android Studio\\jbr && gradlew.bat clean assembleDebug\")",
+      "Bash(cat:*)",
+      "Bash(C:/Users/zanee/AppData/Local/Android/Sdk/platform-tools/adb.exe -s R5CX41RRY0M shell screencap -p)",
+      "Bash(C:/Users/zanee/AppDevAttendance/history_screen.png)"
     ],
     "deny": [],
     "ask": []

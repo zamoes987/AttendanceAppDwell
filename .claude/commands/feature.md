@@ -22,14 +22,18 @@ Read `CLAUDE.md` for full architecture. When planning features, consider:
 3. **Repository Layer**: Data operations and caching
 4. **API/Storage Layer**: Google Sheets API or local storage
 
-**Existing Features**:
-- Google Sign-In with OAuth 2.0
-- Biometric authentication (optional)
-- Member management (CRUD operations)
-- Attendance marking with date selection
-- Attendance history viewing
-- Category-based organization (OM, XT, RN, FT, V)
-- Settings management
+**Production Status**: **FEATURE-COMPLETE** (January 2025)
+
+**Implemented Features**:
+- ✅ Google Sign-In with OAuth 2.0 (token refresh, account removal detection, 24-hour sessions)
+- ✅ Biometric authentication (optional, lifecycle-aware callbacks)
+- ✅ Member management (CRUD with category organization: OM, XT, RN, FT, V)
+- ✅ Attendance marking (timezone-safe date picker, validation, atomic writes)
+- ✅ Attendance history viewing (all dates including skipped ones)
+- ✅ **Statistics Dashboard** (trends, category comparisons, member stats, streaks)
+- ✅ **Skip Dates** (mark "No Meeting" days to exclude from statistics)
+- ✅ Settings management (spreadsheet config, biometric toggle, dark mode)
+- ✅ Comprehensive error handling (user-friendly messages, offline graceful degradation)
 
 **Integration Points**:
 - Google Sheets as data backend
@@ -106,7 +110,64 @@ For any new feature, consider:
 - [ ] Add unit tests for business logic
 - [ ] Add UI tests for user flows
 
-## Example Feature: "Export Attendance to CSV"
+## Recent Feature Implementations (Reference These Patterns)
+
+### Example 1: Statistics Dashboard (Complete Feature)
+
+**Requirements Met**:
+- Display overall attendance metrics, trends, category comparisons, member stats
+- Show current/longest streaks for each member
+- Sortable member list with multiple criteria
+- Visual trend analysis with direction indicators
+
+**Implementation Approach (4-layer pattern)**:
+1. **Data Models** (`data/models/Statistics.kt`):
+   - Created OverallStatistics, MemberStatistics, CategoryStatistics, TrendAnalysis, AttendanceTrend
+   - All immutable data classes with clear properties
+
+2. **Repository** (`data/repository/SheetsRepository.kt`):
+   - Added 4 calculation methods: `calculateOverallStatistics()`, `calculateMemberStatistics()`, `calculateCategoryStatistics()`, `calculateAttendanceTrend()`
+   - All calculations synchronous, in-memory, no network calls
+   - Performance: O(n × m) complexity (~150ms for 75 members × 40 meetings)
+
+3. **ViewModel** (`viewmodel/AttendanceViewModel.kt`):
+   - Added StateFlows: `overallStatistics`, `memberStatistics`, `categoryStatistics`, `trendAnalysis`, `statisticsLoading`
+   - Added `calculateStatistics()` method with 5-second data wait timeout
+   - Added `setMemberStatisticsSort()` for dynamic sorting
+
+4. **UI** (`ui/screens/StatisticsScreen.kt` - 798 lines, 12 composables):
+   - OverallStatisticsCard, TrendCard, CategoryComparisonCard, MemberStatisticsSection
+   - Color-coded attendance rates (green ≥80%, amber 50-79%, red <50%)
+   - LazyColumn with key-based items for performance
+   - FilterChips for sorting options
+
+**Key Patterns**:
+- Calculations triggered on-demand via LaunchedEffect, not on every recomposition
+- All StateFlows collected with `.collectAsState()` for automatic UI updates
+- Empty/loading states handled gracefully
+- Material 3 design consistency maintained
+
+### Example 2: Skip Dates Feature (Data Model Enhancement)
+
+**Requirements Met**:
+- Allow marking specific dates as "No Meeting"
+- Exclude skipped dates from attendance statistics
+- Show skipped dates in history with visual indicator
+
+**Implementation Approach**:
+1. **Data Model** (`data/models/AttendanceRecord.kt`):
+   - Added `isSkipped: Boolean` property to AttendanceRecord
+
+2. **Repository** (`data/repository/SheetsRepository.kt`):
+   - Modified statistics calculations to filter out `isSkipped` records
+
+3. **UI**:
+   - HistoryScreen: Shows "No Meeting" badge for skipped dates
+   - Statistics calculations exclude skipped dates from totals
+
+**Key Pattern**: Minimal changes, leveraged existing architecture
+
+## Example Feature Plan: "Export Attendance to CSV"
 
 **Requirements**:
 - Export attendance data to CSV file

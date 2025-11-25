@@ -29,10 +29,10 @@ API Service (GoogleSheetsService) + Local Storage
 ```
 
 **Key Files**:
-- `data/models/`: Member, AttendanceRecord, Category, AppSettings
-- `data/repository/SheetsRepository.kt`: Main data repository
+- `data/models/`: Member, AttendanceRecord, Category, AppSettings, **Statistics** (new)
+- `data/repository/SheetsRepository.kt`: Main data repository with statistics calculations
 - `data/repository/PreferencesRepository.kt`: Settings storage
-- `viewmodel/AttendanceViewModel.kt`: Primary ViewModel
+- `viewmodel/AttendanceViewModel.kt`: Primary ViewModel with statistics state
 - `viewmodel/SettingsViewModel.kt`: Settings ViewModel
 
 **Current Patterns**:
@@ -40,11 +40,39 @@ API Service (GoogleSheetsService) + Local Storage
 - **Error Handling**: `Result<T>` return types, Flow-based error state
 - **Caching**: In-memory cache in repository, lazy loading
 - **Data Flow**: Repository MutableStateFlow → ViewModel StateFlow → UI collectAsState()
+- **Thread Safety**: Immutable data patterns (Member.attendanceHistory is immutable Map)
+- **Timeout Protection**: 10-second StateFlow collection timeouts prevent hangs
 
 **Data Models**:
-- **Member**: id, name, category, rowIndex, attendanceHistory map
-- **AttendanceRecord**: date, dateString, columnIndex, presentMembers, categoryTotals
+- **Member**: id, name, category, rowIndex, attendanceHistory (immutable Map)
+- **AttendanceRecord**: date, dateString, columnIndex, presentMembers, categoryTotals, isSkipped (for "No Meeting" dates)
 - **Category**: Enum (OM, XT, RN, FT, V)
+- **Statistics Models** (data/models/Statistics.kt):
+  - **OverallStatistics**: totalMeetings, averageAttendance, activeMembers, dateRange
+  - **MemberStatistics**: member, attendanceRate, meetingsAttended, totalMeetings, currentStreak, longestStreak, lastAttended
+  - **CategoryStatistics**: category, averageAttendance, totalMembers, totalMeetingsWithMembers
+  - **TrendAnalysis**: trends (List<AttendanceTrend>), direction (IMPROVING/STABLE/DECLINING), changePercentage
+  - **AttendanceTrend**: date, attendanceCount, attendanceRate
+
+## Critical Statistics Calculations (SheetsRepository.kt)
+
+**Statistics Methods**:
+- `calculateOverallStatistics()`: Returns aggregate metrics across all meetings/members
+- `calculateMemberStatistics(sortBy: MemberStatisticsSortBy)`: Per-member stats with 7 sort options
+- `calculateCategoryStatistics()`: Category-level averages and comparisons
+- `calculateAttendanceTrend(meetingsCount = 10)`: Analyzes recent attendance trends
+
+**Streak Calculation Logic**:
+- **Current Streak**: Count consecutive recent meetings attended (from most recent backwards)
+- **Longest Streak**: Best consecutive attendance run in entire history
+- **Critical**: Requires deduplicated, non-future dates from GoogleSheetsService
+- **Example**: If member attended 10/23, 10/30, 11/06 (most recent), current streak = 3
+
+**Performance**:
+- All calculations are synchronous (no suspend functions)
+- Complexity: O(n × m) where n=members, m=meetings (~150ms for 75 members × 40 meetings)
+- No network calls - purely in-memory calculations from StateFlows
+- Calculations triggered on-demand, not on every recomposition
 
 ## Your Responsibilities
 

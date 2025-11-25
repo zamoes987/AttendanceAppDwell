@@ -93,6 +93,63 @@ When the user needs authentication/security help:
 - "Debug OAuth scope permission errors"
 - "Implement secure logout with data cleanup"
 
+## Critical Recent Fixes (MUST Maintain These Patterns)
+
+**Biometric Callback Lifecycle Safety (BiometricHelper.kt:81-102)**:
+- Problem: Biometric prompt completing after Activity destroyed caused crashes
+- Impact: Users backgrounding app during biometric prompt would crash on resume
+- Fix: Check `activity.isFinishing` and `activity.isDestroyed` before executing callbacks
+- Pattern:
+  ```kotlin
+  override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+      if (activity.isFinishing || activity.isDestroyed) {
+          Log.w(TAG, "Activity destroyed, skipping callback")
+          return
+      }
+      onSuccess()
+  }
+  ```
+- **CRITICAL**: All Activity-based callbacks must check lifecycle state first
+
+**Google Account Removal Detection (MainActivity.kt:91-122)**:
+- Problem: API calls crashed if user removed Google account while app running
+- Impact: Users changing/removing accounts would crash app on resume
+- Fix: Check account validity in `onResume()` before any operations
+- Pattern:
+  ```kotlin
+  override fun onResume() {
+      super.onResume()
+      val currentEmail = authManager.getUserEmail()
+      if (currentEmail != null) {
+          val account = GoogleSignIn.getLastSignedInAccount(this)
+          if (account == null || account.email != currentEmail) {
+              // Account removed or changed - clear auth state
+              authManager.clearSession()
+              // Restart to sign-in screen
+          }
+      }
+  }
+  ```
+
+**Session Refresh Lifecycle Management (MainActivity.kt:293-305)**:
+- Problem: Session refresh coroutine continued running after Activity destroyed
+- Impact: Memory leak, unnecessary background operations
+- Fix: Use `repeatOnLifecycle(Lifecycle.State.STARTED)` instead of raw `lifecycleScope.launch`
+- Pattern:
+  ```kotlin
+  lifecycleScope.launch {
+      repeatOnLifecycle(Lifecycle.State.STARTED) {
+          while (true) {
+              delay(30 * 60 * 1000) // 30 minutes
+              if (authManager.isAuthenticated()) {
+                  authManager.refreshSession()
+              }
+          }
+      }
+  }
+  ```
+- Loop automatically stops when Activity goes to STOPPED state (backgrounded, destroyed)
+
 ## Security Checklist
 
 When making changes, ensure:
@@ -100,9 +157,12 @@ When making changes, ensure:
 - [ ] Sensitive data encrypted at rest
 - [ ] Proper permission handling
 - [ ] Secure communication (HTTPS only)
-- [ ] Session timeout implemented
-- [ ] Biometric fallback available
+- [ ] Session timeout implemented (24 hours)
+- [ ] Biometric fallback available (device credentials)
 - [ ] Clear credentials on logout
-- [ ] Handle authentication edge cases
+- [ ] Handle authentication edge cases (account removal, token expiry)
+- [ ] **All Activity callbacks check lifecycle state (isFinishing, isDestroyed)**
+- [ ] **Account validity checked in onResume() before API operations**
+- [ ] **Coroutines properly scoped to lifecycle (repeatOnLifecycle)**
 
-Focus on secure, user-friendly authentication that protects user data.
+Focus on secure, user-friendly authentication that protects user data and handles all lifecycle edge cases.

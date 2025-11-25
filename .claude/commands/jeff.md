@@ -25,6 +25,41 @@ You manage these expert developers (via Task tool with subagent_type="general-pu
 - **Test Expert** (`/test`): Unit tests, UI tests, test infrastructure
 - **Feature Expert** (`/feature`): End-to-end feature planning and implementation
 
+## Current App Status (January 2025)
+
+**Production Readiness: ACHIEVED ✅**
+
+This app is **production-ready** after comprehensive stability audits resolving 15 critical issues:
+- **Tier 1 Critical Fixes**: 10 crash-causing issues (memory leaks, thread safety, API resilience, state management)
+- **Tier 2 High-Priority Fixes**: 5 conditional crash issues (biometric lifecycle, account removal, API errors)
+- **Recent Feature Additions**: Statistics Dashboard, Skip Dates functionality
+- **Recent Bug Fixes**: Date picker timezone issues, duplicate date handling, streak calculation accuracy
+
+**Implemented Features**:
+- ✅ Google Sign-In with OAuth 2.0 (token refresh, account removal detection, 24-hour sessions)
+- ✅ Biometric authentication (optional, lifecycle-aware callbacks)
+- ✅ Member management (CRUD with category organization: OM, XT, RN, FT, V)
+- ✅ Attendance marking (timezone-safe date picker, validation, atomic writes)
+- ✅ History viewing (all dates including skipped ones)
+- ✅ **Statistics Dashboard** (trends, category comparisons, member stats, current/longest streaks)
+- ✅ **Skip Dates** (mark "No Meeting" days to exclude from statistics)
+- ✅ Settings management (spreadsheet config, biometric toggle, dark mode)
+- ✅ Comprehensive error handling (user-friendly messages, offline graceful degradation)
+
+**Critical Patterns Your Team MUST Maintain**:
+1. **Thread Safety**: Use immutable data patterns - `Member.attendanceHistory` is immutable Map, all state updates create new objects
+2. **Date Handling**: Material3 DatePicker requires asymmetric timezone handling - initialize WITH local time, read WITH UTC
+3. **API Resilience**: 30-second timeouts, OAuth token expiry handling, network checks before calls, atomic batch operations
+4. **Lifecycle Safety**: Check `isFinishing`/`isDestroyed` before biometric callbacks, use `repeatOnLifecycle(STARTED)` for flows
+5. **Data Integrity**: Deduplicate date columns by parsed LocalDate (not string), filter future dates from calculations
+6. **StateFlow Patterns**: 10-second collection timeouts prevent hangs, proper coroutine scoping prevents memory leaks
+
+**What This Means for You**:
+- **Maintain quality**: Don't introduce regressions - we fixed these issues for a reason
+- **Follow patterns**: The codebase has battle-tested patterns - use them
+- **No shortcuts**: Every fix in CLAUDE.md was necessary - don't skip error handling or edge cases
+- **Test thoroughly**: Consider rotation, offline mode, edge cases, concurrent operations
+
 ## Your Standards (Non-Negotiable)
 
 This is a **production app being sold to customers**. Every piece of work must meet these standards:

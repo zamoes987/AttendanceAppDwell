@@ -71,12 +71,93 @@ When the user reports a bug or issue:
    - Add validation or null checks
    - Document the fix
 
+## Recent Critical Fixes (Reference These Solutions)
+
+**15 Critical Issues Resolved - These Patterns MUST Be Maintained:**
+
+### Tier 1 Critical Fixes (10 crash-causing issues)
+
+**1. Infinite Coroutine Loop (MainActivity.kt:293-305)**:
+- Symptom: Memory leak on screen rotation, app slows down over time
+- Root cause: Coroutine loop kept running after Activity destruction
+- Fix: Use `repeatOnLifecycle(Lifecycle.State.STARTED)` to stop loop when Activity not active
+- Pattern: Always scope coroutines to lifecycle, never use raw `lifecycleScope.launch` for continuous operations
+
+**2. Thread Safety / Race Conditions (SheetsRepository.kt:165-219)**:
+- Symptom: ConcurrentModificationException, data corruption, inconsistent state
+- Root cause: Mutating shared state directly (MutableMap in Member.attendanceHistory)
+- Fix: Use immutable data patterns - create new objects instead of mutating
+- Pattern: `member.copy(attendanceHistory = member.attendanceHistory + (date to isPresent))` NOT `member.attendanceHistory[date] = isPresent`
+
+**3. StateFlow Collection Hangs (AttendanceViewModel.kt:118-121)**:
+- Symptom: UI freezes indefinitely, app becomes unresponsive
+- Root cause: StateFlow collection with no timeout
+- Fix: Add 10-second timeout with `withTimeoutOrNull(10_000)`
+- Pattern: Always use timeouts when collecting StateFlows in suspend functions
+
+**4. DatePicker State Recreation Bug (HomeScreen.kt:319-323)**:
+- Symptom: Date picker shows wrong/stale date when reopened, "jumps to previous date"
+- Root cause: `rememberDatePickerState` outside conditional, initialized once, never updated
+- Fix: Move state creation inside `if (showDatePicker)` block to recreate with current date
+- Pattern: State that needs to reflect external changes must be recreated when shown
+
+**5. DatePicker Timezone Off-By-One (HomeScreen.kt:334)**:
+- Symptom: Selecting Nov 6 selects Nov 5 - always one day off
+- Root cause: Material3 DatePicker returns UTC midnight, converted with system timezone
+- Fix: Use `ZoneId.of("UTC")` when reading selection, NOT `ZoneId.systemDefault()`
+- Pattern: Initialize picker WITH local time, read selection WITH UTC (asymmetric but required)
+
+**6. Duplicate Date Columns (GoogleSheetsService.kt:329-353)**:
+- Symptom: Streaks always return 0, duplicate attendance entries
+- Root cause: Sheet has "11/06/25" and "11/6/25" columns, both processed
+- Fix: Deduplicate by parsed LocalDate using `MutableSet<LocalDate>`, not string comparison
+- Pattern: Always deduplicate date columns by parsed date object
+
+**7. Future Dates Breaking Streaks (GoogleSheetsService.kt:331-353)**:
+- Symptom: Current streaks show 0, date range shows future months
+- Root cause: Sheet contains future date columns with empty cells
+- Fix: Filter out dates `isAfter(LocalDate.now())`
+- Pattern: Only process historical dates (today and earlier) for calculations
+
+**8. Google Play Services Check Missing (MainActivity.kt:64-67)**:
+- Symptom: Crash when Google Play Services not available/outdated
+- Root cause: Attempted sign-in without checking availability
+- Fix: Check `GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable()` before sign-in
+- Pattern: Always check Google Play Services availability before using Google APIs
+
+**9. PreferencesRepository Broken Method (PreferencesRepository.kt:71-75)**:
+- Symptom: `getSpreadsheetId()` always returned empty string
+- Root cause: `first()` on empty flow with default value
+- Fix: Use `firstOrNull()` with proper default handling
+- Pattern: Test preference getters with empty DataStore state
+
+**10. OAuth Token Expiration Not Handled**:
+- Symptom: API calls fail after 1 hour with cryptic errors
+- Root cause: OAuth tokens expire, not detected or refreshed
+- Fix: Catch `UserRecoverableAuthIOException`, show user-friendly message
+- Pattern: All GoogleSheetsService methods catch OAuth-specific exceptions
+
+### Tier 2 High-Priority Fixes (5 conditional crash issues)
+
+**11. Biometric Callback After Activity Destruction (BiometricHelper.kt:81-102)**:
+- Symptom: Crash when biometric prompt completes after Activity destroyed
+- Root cause: Callbacks executed on destroyed Activity context
+- Fix: Check `activity.isFinishing` and `activity.isDestroyed` before executing callbacks
+- Pattern: All Activity callbacks must check lifecycle state first
+
+**12. Google Account Removal Not Detected (MainActivity.kt:91-122)**:
+- Symptom: API crashes if user removes Google account while app running
+- Root cause: No detection of account changes
+- Fix: Check account validity in `onResume()`, clear auth state if removed
+- Pattern: Verify account still exists before API operations after app backgrounded
+
 ## Common Issues and Solutions
 
 **"App crashes on launch"**:
 - Check `MainActivity.kt` for initialization errors
 - Verify Google Sheets API credentials
 - Check if encryption setup fails
+- Check Google Play Services availability
 
 **"Sign-in doesn't work"**:
 - Verify SHA-1 fingerprint matches Google Cloud Console
@@ -89,12 +170,24 @@ When the user reports a bug or issue:
 - Verify sheet tab name is "2025"
 - Check internet connectivity
 - Review API error responses
+- Check for OAuth token expiration
 
 **"UI not updating"**:
 - Verify StateFlow is being updated in repository
 - Check ViewModel is collecting the flow
 - Ensure UI is using `.collectAsState()`
 - Look for coroutine scope issues
+- Check for StateFlow collection timeout
+
+**"Streaks showing 0"**:
+- Check for duplicate date columns in sheet
+- Verify future dates are filtered out
+- Check `GoogleSheetsService.readAllAttendance()` deduplication logic
+
+**"Date picker issues"**:
+- Verify state recreation inside conditional
+- Check timezone conversion uses UTC for reading selection
+- Ensure initialization uses local timezone
 
 **"Build failures"**:
 - Run `./gradlew clean`
@@ -103,7 +196,7 @@ When the user reports a bug or issue:
 - Verify JDK version is 17
 
 **"Performance issues"**:
-- Check for memory leaks (unclosed resources)
+- Check for memory leaks (unclosed resources, lifecycle-unaware coroutines)
 - Look for inefficient recomposition
 - Profile with Android Studio Profiler
 - Optimize expensive operations

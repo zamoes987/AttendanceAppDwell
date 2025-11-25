@@ -45,13 +45,14 @@ enum class MemberStatisticsSortBy {
  *
  * @property context Application context
  * @property accountName Google account email for authentication
+ * @property preferencesRepository PreferencesRepository instance (must be passed to avoid multiple DataStore instances)
  */
 class SheetsRepository(
     context: Context,
-    accountName: String
+    accountName: String,
+    private val preferencesRepository: PreferencesRepository
 ) {
     private val sheetsService = GoogleSheetsService(context, accountName)
-    private val preferencesRepository = PreferencesRepository(context)
 
     // Coroutine scope for collecting flows
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)

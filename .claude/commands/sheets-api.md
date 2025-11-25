@@ -85,6 +85,50 @@ When the user needs Sheets API help:
 - Handle edge cases (empty sheet, missing columns, etc.)
 - Maintain backward compatibility
 
+## Critical Recent Fixes (MUST Maintain These Patterns)
+
+**Duplicate Date Column Handling (GoogleSheetsService.kt:329-353)**:
+- Problem: Google Sheets can have duplicate date columns with different formatting (e.g., "11/06/25" and "11/6/25")
+- Impact: Created duplicate AttendanceRecords, broke streak calculations (always returned 0)
+- **Solution**: Use `seenDates: MutableSet<LocalDate>` to deduplicate by parsed date object, not string
+- Pattern:
+  ```kotlin
+  val seenDates = mutableSetOf<LocalDate>()
+  for (dateString in headers) {
+      val parsedDate = AttendanceRecord.parseDateFromSheet(dateString) ?: continue
+      if (parsedDate in seenDates) {
+          Log.d(TAG, "Skipping duplicate date: $dateString")
+          continue
+      }
+      seenDates.add(parsedDate)
+      // Process date column...
+  }
+  ```
+
+**Future Date Filtering (GoogleSheetsService.kt:331-353)**:
+- Problem: Sheet contains future date columns (beyond today) with empty cells
+- Impact: Current streak calculations broke (started from future date, immediately hit empty cell → streak = 0)
+- **Solution**: Filter out any date `isAfter(LocalDate.now())`
+- Pattern:
+  ```kotlin
+  if (parsedDate.isAfter(LocalDate.now())) {
+      Log.d(TAG, "Skipping future date: $dateString")
+      continue
+  }
+  ```
+
+**Atomic Write Operations (GoogleSheetsService.kt:395-437)**:
+- **CRITICAL**: All write operations MUST be atomic to prevent data corruption
+- Use batch updates with proper request ordering
+- Verify all requests succeed before updating local cache
+- Check for duplicate date columns after write (warn if detected)
+- Pattern: Build complete BatchUpdateValuesRequest before executing any writes
+
+**30-Second Timeouts**:
+- All API calls configured with 30-second timeout to prevent indefinite hangs
+- Network connectivity checks before all operations
+- OAuth token expiry detection with user-friendly messages
+
 ## Common Tasks
 
 - "Add ability to read/write X from the sheet"

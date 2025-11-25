@@ -168,10 +168,144 @@ androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 ## Test Coverage Goals
 
 Prioritize testing:
-1. **Business Logic**: ViewModel methods, data transformations
-2. **Data Layer**: Repository operations, API parsing
+1. **Business Logic**: ViewModel methods, data transformations, **statistics calculations**
+2. **Data Layer**: Repository operations, API parsing, **streak calculations**
 3. **Critical Flows**: Authentication, attendance saving, data loading
 4. **UI State**: Loading, error, empty, and success states
 5. **Edge Cases**: Network failures, invalid data, concurrent operations
+6. **Recent Bug Patterns**: Thread safety, lifecycle issues, date handling
 
-Focus on practical, maintainable tests that catch real bugs and regressions.
+## Critical Testing Areas (Based on Recent Fixes)
+
+**High-Priority Regression Tests Needed:**
+
+### 1. Statistics Calculation Tests
+**Why**: Streak calculations were broken by duplicate dates and future dates
+```kotlin
+@Test
+fun `calculateMemberStatistics - handles duplicate date columns correctly`() {
+    // Given: Sheet data with duplicate dates "11/6/25" and "11/06/25"
+    // When: Calculate member statistics
+    // Then: Streaks should be accurate, no duplicate dates processed
+}
+
+@Test
+fun `calculateMemberStatistics - filters future dates from calculations`() {
+    // Given: Sheet data with dates beyond LocalDate.now()
+    // When: Calculate member statistics
+    // Then: Future dates excluded, current streaks accurate
+}
+
+@Test
+fun `calculateCurrentStreak - counts consecutive recent attendance`() {
+    // Given: Member attended 10/23, 10/30, 11/06 (most recent)
+    // When: Calculate current streak
+    // Then: Current streak = 3
+}
+```
+
+### 2. Date Handling Tests
+**Why**: Material3 DatePicker had timezone off-by-one bugs
+```kotlin
+@Test
+fun `datePicker selection - no timezone off-by-one error`() {
+    // Given: User selects Nov 6 in date picker
+    // When: Selection converted to LocalDate
+    // Then: LocalDate should be Nov 6, not Nov 5
+}
+
+@Test
+fun `AttendanceRecord_parseDateFromSheet - handles various formats`() {
+    // Test: "11/6/25", "11/06/25", "11/6/2025" all parse to same LocalDate
+}
+```
+
+### 3. Thread Safety Tests
+**Why**: Race conditions in repository caused data corruption
+```kotlin
+@Test
+fun `Member_attendanceHistory - is immutable map`() {
+    // Verify Member.attendanceHistory is Map (not MutableMap)
+    // Verify updating history creates new Member instance
+}
+
+@Test
+fun `SheetsRepository_updateMemberAttendance - creates new objects`() {
+    // Given: Member with existing attendance
+    // When: Update attendance
+    // Then: New Member object created, original unchanged
+}
+```
+
+### 4. Lifecycle Tests
+**Why**: Coroutines and callbacks continued after Activity destroyed
+```kotlin
+@Test
+fun `BiometricHelper - callbacks check lifecycle state`() {
+    // Given: Activity isFinishing = true
+    // When: Biometric callback executes
+    // Then: Callback skipped, no crash
+}
+
+@Test
+fun `MainActivity_sessionRefresh - stops when Activity destroyed`() {
+    // Verify repeatOnLifecycle stops coroutine on STOPPED state
+}
+```
+
+### 5. Google Sheets API Tests
+**Why**: Duplicate detection and future date filtering critical for data integrity
+```kotlin
+@Test
+fun `GoogleSheetsService_readAllAttendance - deduplicates date columns`() {
+    // Given: Sheet with "11/6/25" and "11/06/25" columns
+    // When: Read attendance
+    // Then: Only one AttendanceRecord for that date
+}
+
+@Test
+fun `GoogleSheetsService_readAllAttendance - filters future dates`() {
+    // Given: Sheet with dates > LocalDate.now()
+    // When: Read attendance
+    // Then: Future dates excluded from AttendanceRecord list
+}
+
+@Test
+fun `GoogleSheetsService_writeAttendance - atomic batch operation`() {
+    // Verify all updates in single batch, no partial writes
+}
+```
+
+### 6. StateFlow Collection Tests
+**Why**: Collection without timeout caused infinite hangs
+```kotlin
+@Test
+fun `AttendanceViewModel_loadData - times out if StateFlow never emits`() = runTest {
+    // Given: Repository StateFlow that never emits
+    // When: ViewModel collects with timeout
+    // Then: Returns null after 10 seconds, doesn't hang forever
+}
+```
+
+### 7. OAuth Token Expiry Tests
+**Why**: Users unable to use app after 1 hour without proper handling
+```kotlin
+@Test
+fun `GoogleSheetsService - handles UserRecoverableAuthIOException`() {
+    // Given: OAuth token expired
+    // When: API call made
+    // Then: Returns user-friendly error message, not crash
+}
+```
+
+## Test Coverage Goals (Updated)
+
+Prioritize testing:
+1. **Business Logic**: ViewModel methods, data transformations, **statistics calculations**
+2. **Data Layer**: Repository operations, API parsing, **streak calculations**
+3. **Critical Flows**: Authentication, attendance saving, data loading
+4. **UI State**: Loading, error, empty, and success states
+5. **Edge Cases**: Network failures, invalid data, concurrent operations
+6. **Regression Prevention**: Write tests for all 15 critical fixes documented in CLAUDE.md
+
+Focus on practical, maintainable tests that catch real bugs and prevent regressions.
