@@ -53,8 +53,13 @@ class GoogleSheetsService(
      * IMPORTANT: Replace this with your actual spreadsheet ID!
      * You can find this in the URL of your Google Sheet:
      * https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID_HERE/edit
+     *
+     * TODO: For production use, consider loading this from:
+     * - BuildConfig fields (set in build.gradle)
+     * - A configuration file
+     * - User settings (already supported via PreferencesRepository)
      */
-    private val SPREADSHEET_ID = "1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM"
+    private val SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
 
     /**
      * The name of the tab/sheet to use for the current year.
@@ -264,8 +269,6 @@ class GoogleSheetsService(
                 // Find member by row index (adding 1 because row 0 is header)
                 val member = members.find { it.rowIndex == rowIndex + 1 }
                 if (member != null && isPresent) {
-                    // CRITICAL FIX: Removed broken markAttendance() call
-                    // This method only returns AttendanceRecord, not updated members
                     record.markPresent(member.id, member.category)
                 }
             }
@@ -393,13 +396,9 @@ class GoogleSheetsService(
                     member.copy(attendanceHistory = attendanceHistory)
                 }
 
-                // DEBUG: Log summary for Stormie Harlan
+                // Debug logging for development
                 if (BuildConfig.DEBUG) {
-                    val stormie = updatedMembers.find { it.name.contains("Stormie", ignoreCase = true) }
-                    if (stormie != null) {
-                        val totalPresent = stormie.attendanceHistory.count { it.value }
-                        Log.d("GoogleSheetsService", "Stormie Harlan - Total attendance entries: ${stormie.attendanceHistory.size}, Present count: $totalPresent")
-                    }
+                    Log.d("GoogleSheetsService", "Total members updated: ${updatedMembers.size}")
                     Log.d("GoogleSheetsService", "Total attendance records created: ${attendanceRecords.size}")
                 }
 

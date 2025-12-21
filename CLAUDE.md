@@ -34,11 +34,11 @@ Attendance Tracker is a native Android application for tracking meeting attendan
 # Install debug APK to connected device
 ./gradlew installDebug
 
-# Uninstall from device
-"$USERPROFILE/AppData/Local/Android/Sdk/platform-tools/adb.exe" -s R5CX41RRY0M uninstall com.attendancetracker
+# Uninstall from device (replace YOUR_DEVICE_ID with your device serial)
+adb -s YOUR_DEVICE_ID uninstall com.attendancetracker
 
 # Install specific APK
-"$USERPROFILE/AppData/Local/Android/Sdk/platform-tools/adb.exe" -s R5CX41RRY0M install "$USERPROFILE/AppDevAttendance/app/build/outputs/apk/debug/app-debug.apk"
+adb -s YOUR_DEVICE_ID install app/build/outputs/apk/debug/app-debug.apk
 ```
 
 ### Gradle Tasks
@@ -140,7 +140,7 @@ Uses **Kotlin StateFlow** for reactive state updates with **thread-safe immutabl
 ## Google Sheets Integration
 
 ### Sheet Structure
-- **Spreadsheet ID**: Currently `1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM` (configured in `GoogleSheetsService.kt`)
+- **Spreadsheet ID**: Configure in `GoogleSheetsService.kt` (see setup instructions)
 - **Tab Name**: "2025" (year-based)
 - **Layout**:
   - Column A: Category markers (OM, XT, FT/RN, V)
@@ -511,13 +511,13 @@ The app underwent comprehensive stability audits in January 2025, resulting in f
 **Example Before Fix:**
 ```
 Date columns processed: 11/06/25 (x), 11/6/25 (empty), 11/13/25 (empty), 12/04/25 (empty)
-Stormie Harlan: 35 x's in sheet → Current streak: 0 (broke at duplicate 11/6/25)
+John Smith: 35 x's in sheet → Current streak: 0 (broke at duplicate 11/6/25)
 ```
 
 **Example After Fix:**
 ```
 Date columns processed: 11/06/25 (x) only - duplicates and future dates skipped
-Stormie Harlan: 35 x's in sheet → Current streak: 3 (10/23, 10/30, 11/06)
+John Smith: 35 x's in sheet → Current streak: 3 (10/23, 10/30, 11/06)
 ```
 
 **Critical Pattern for Google Sheets Date Processing:**
@@ -598,6 +598,146 @@ To verify stability fixes:
    - Member count display
 
 This change resolved date picker visibility issues caused by overcrowded TopAppBar.
+
+## Notifications Feature (November 2025)
+
+Attendance reminder notifications were added to help leaders remember to track attendance for Thursday meetings.
+
+### Architecture
+
+**Components** (`app/src/main/java/com/attendancetracker/data/notifications/`):
+- `NotificationHelper.kt`: Manages AlarmManager scheduling and notification channel creation
+- `NotificationReceiver.kt`: BroadcastReceiver that displays notifications when alarms trigger
+- `BootReceiver.kt`: Restores scheduled alarms after device reboot
+
+**Integration Points**:
+- `SettingsScreen.kt`: UI for enabling/disabling morning and evening reminders
+- `SettingsViewModel.kt`: State management for notification preferences
+- `MainActivity.kt`: Creates notification channel on app launch
+- `PreferencesRepository.kt`: Persists notification preferences to DataStore
+
+### Critical: DataStore Singleton Pattern
+
+**IMPORTANT**: `NotificationHelper` requires `PreferencesRepository` to be passed as constructor parameter. **Never create multiple `PreferencesRepository` instances** - this violates DataStore's singleton requirement and causes crashes:
+
+```kotlin
+// ✅ CORRECT - Pass existing repository
+val preferencesRepo = PreferencesRepository(context)
+val notificationHelper = NotificationHelper(context, preferencesRepo)
+
+// ❌ WRONG - Creates duplicate DataStore instance (will crash!)
+class NotificationHelper(context: Context) {
+    private val preferencesRepository = PreferencesRepository(context)  // Creates duplicate!
+}
+```
+
+**Error if violated**:
+```
+IllegalStateException: There are multiple DataStores active for the same file:
+settings.preferences_pb
+```
+
+### Permission Requirements
+
+Notifications require TWO permissions on Android 12+ (API 31+):
+
+1. **POST_NOTIFICATIONS** (Android 13+/API 33+):
+   - Runtime permission requested via `ActivityResultContracts.RequestPermission()`
+   - Handled in `SettingsScreen.kt` with `notificationPermissionLauncher`
+   - Required to display notifications
+
+2. **SCHEDULE_EXACT_ALARM** (Android 12+/API 31+):
+   - Special permission - **cannot be requested at runtime**
+   - User MUST manually grant in system Settings
+   - Checked via `AlarmManager.canScheduleExactAlarms()`
+   - Opens Settings via `Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM` intent
+   - Required for AlarmManager exact alarm scheduling
+
+**Permission Flow in UI**:
+- Test notification button checks both permissions before scheduling
+- Morning/evening switches check both permissions before enabling
+- If exact alarm permission missing, shows toast and opens Settings
+- Warning card displayed when `canScheduleExactAlarms()` returns false
+
+### Notification Schedule
+
+- **Morning Reminder**: Thursdays at 8:00 AM
+  - Message: "Don't forget to count members for tonight's meeting!"
+  - Request code: 1001
+
+- **Evening Reminder**: Thursdays at 7:00 PM
+  - Message: "The meeting is starting. Make sure to count members in the app."
+  - Request code: 1002
+
+**Scheduling Logic**:
+- Uses `AlarmManager.setRepeating()` with 7-day interval (weekly)
+- Calculates next Thursday from current date using `Calendar` API
+- If currently Thursday and time passed, schedules for next week
+- All scheduled times are in device's local timezone
+
+### Alarm Persistence
+
+**Challenge**: `AlarmManager` alarms are cleared when device reboots.
+
+**Solution**: `BootReceiver` listens for `ACTION_BOOT_COMPLETED`:
+1. Reads notification preferences from DataStore
+2. If morning notification enabled, reschedules morning alarm
+3. If evening notification enabled, reschedules evening alarm
+4. Uses `goAsync()` to prevent ANR during async operations
+
+### Implementation Details
+
+**NotificationHelper Methods**:
+- `createNotificationChannel()`: Creates "attendance_reminders" channel (required Android 8.0+)
+- `scheduleMorningNotification()`: Schedules 8 AM Thursday recurring alarm
+- `scheduleEveningNotification()`: Schedules 7 PM Thursday recurring alarm
+- `cancelMorningNotification()`: Cancels morning alarm via PendingIntent
+- `cancelEveningNotification()`: Cancels evening alarm via PendingIntent
+- `showTestNotification()`: Schedules immediate test notification (3 seconds delay)
+- `canScheduleExactAlarms()`: Checks exact alarm permission (Android 12+)
+- `requestExactAlarmPermission()`: Opens system Settings for exact alarm permission
+- `restoreAlarmsFromPreferences()`: Restores alarms after reboot based on saved preferences
+
+**NotificationReceiver**:
+- Receives broadcast when alarm triggers
+- Determines notification type from Intent extra (`EXTRA_NOTIFICATION_TYPE`)
+- Creates notification with two actions: "Open App" and "Remind Later"
+- "Open App" launches MainActivity with `FLAG_ACTIVITY_NEW_TASK | FLAG_ACTIVITY_CLEAR_TASK`
+- High priority (PRIORITY_HIGH) with vibration enabled
+
+**Notification Channel**:
+- ID: `"attendance_reminders"`
+- Importance: `IMPORTANCE_HIGH` (shows as heads-up notification)
+- Vibration enabled
+- Created in MainActivity onCreate (safe to call multiple times)
+
+### Testing Reminders Feature
+
+1. **Permission Check**: Verify `canScheduleExactAlarms()` on Android 12+ devices
+2. **Notification Permission**: Test runtime permission request on Android 13+
+3. **Test Notification**: Use "Send Test Notification" button - should appear in 3 seconds
+4. **Schedule Verification**: Enable morning/evening reminders, verify alarms scheduled
+5. **Reboot Test**: Enable reminders, reboot device, verify alarms restored
+6. **Timezone Test**: Change device timezone, verify alarms adjust correctly
+7. **Notification Tap**: Tap "Open App" action, verify MainActivity launches without crash
+
+### Common Issues
+
+**Test notification doesn't appear**:
+- Check `canScheduleExactAlarms()` returns true
+- Verify POST_NOTIFICATIONS permission granted (Android 13+)
+- Check notification channel created successfully
+- Review logcat for "NotificationHelper" debug logs
+
+**Switches don't enable/crash app**:
+- Verify exact alarm permission granted manually in Settings
+- Check PreferencesRepository singleton pattern followed
+- Ensure NotificationHelper receives PreferencesRepository, doesn't create its own
+
+**Alarms don't survive reboot**:
+- Verify RECEIVE_BOOT_COMPLETED permission in AndroidManifest
+- Check BootReceiver registered correctly
+- Confirm preferences saved to DataStore before reboot
 
 ## Testing Notes
 

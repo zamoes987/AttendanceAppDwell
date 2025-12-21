@@ -121,10 +121,10 @@ fun HomeScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        // Dwell CC branding
+                        // TODO: CUSTOMIZATION - Replace with your organization's name/branding
                         Column {
                             Text(
-                                text = "DWELL",
+                                text = "DWELL",  // TODO: Your organization name
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.Bold
                             )
@@ -307,12 +307,16 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp)
                         ) {
-                            // Submit Attendance to Dwell CC button
+                            // Submit Attendance button - opens external submission portal
+                            // TODO: Replace with your organization's attendance submission URL
                             Button(
                                 onClick = {
-                                    val submitUrl = "https://www.dwellcc.org/page/11826?rckipid=EAAAAI8fK!2fXb!2fM90kNNxdXvG1!2bnJSQZY6DszwhSHHN9Op54IBzWCxFtD7!2bAasptQyuNH3cvc1iHs1Mv3Cl7f7P8TrEM!3d&GroupId=188431&Occurrence=2025-11-20T19%3A00%3A00&returnToPage=https://dwellcc.org"
-                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
-                                    context.startActivity(intent)
+                                    // Configure this URL for your organization's submission portal
+                                    val submitUrl = "YOUR_SUBMISSION_URL_HERE"
+                                    if (submitUrl != "YOUR_SUBMISSION_URL_HERE") {
+                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
+                                        context.startActivity(intent)
+                                    }
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
@@ -324,7 +328,8 @@ fun HomeScreen(
                                     contentDescription = "Submit"
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text("Submit Attendance to Dwell CC")
+                                // TODO: CUSTOMIZATION - Update button text for your organization
+                                Text("Submit Attendance")
                             }
 
                             Spacer(modifier = Modifier.size(12.dp))

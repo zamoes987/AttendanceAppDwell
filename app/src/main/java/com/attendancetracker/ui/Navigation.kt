@@ -1,12 +1,15 @@
 package com.attendancetracker.ui
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.attendancetracker.data.auth.AuthManager
 import com.attendancetracker.data.auth.BiometricHelper
+import com.attendancetracker.data.notifications.NotificationHelper
 import com.attendancetracker.data.repository.PreferencesRepository
 import com.attendancetracker.ui.screens.HistoryScreen
 import com.attendancetracker.ui.screens.HomeScreen
@@ -49,8 +52,13 @@ fun Navigation(
     biometricHelper: BiometricHelper
 ) {
     val navController = rememberNavController()
+    val context = LocalContext.current
+
     // Use remember to prevent ViewModel recreation on recomposition
-    val settingsViewModel = remember { SettingsViewModel(preferencesRepository) }
+    val settingsViewModel = remember {
+        val notificationHelper = NotificationHelper(context, preferencesRepository)
+        SettingsViewModel(preferencesRepository, notificationHelper)
+    }
 
     NavHost(
         navController = navController,

@@ -7,13 +7,18 @@ import androidx.compose.ui.graphics.Color
  *
  * Follows Material 3 design guidelines with custom colors
  * for category distinction and status indication.
+ *
+ * TODO: CUSTOMIZATION - Update these colors to match your organization's branding.
+ * The current theme uses a green color scheme. Replace hex values below with your
+ * organization's primary and secondary colors.
  */
 
-// Primary Colors - Dwell CC Green Theme
-val Primary = Color(0xFF48982C)          // Dwell Green
-val PrimaryVariant = Color(0xFF2D5C1A)   // Dark Green
-val Secondary = Color(0xFF66BB3D)        // Light Green
-val SecondaryVariant = Color(0xFF48982C) // Dwell Green
+// Primary Colors - Your Organization's Theme
+// TODO: Replace with your organization's primary brand color
+val Primary = Color(0xFF48982C)          // Primary brand color (currently green)
+val PrimaryVariant = Color(0xFF2D5C1A)   // Darker variant of primary
+val Secondary = Color(0xFF66BB3D)        // Secondary/accent color
+val SecondaryVariant = Color(0xFF48982C) // Secondary variant
 
 // Background Colors
 val BackgroundLight = Color(0xFFFAFAFA)  // Light gray
@@ -22,7 +27,8 @@ val SurfaceLight = Color(0xFFFFFFFF)     // White
 val SurfaceDark = Color(0xFF1E1E1E)      // Dark gray
 
 // Category Colors (for visual distinction in UI)
-val CategoryOM = Color(0xFF48982C)       // Dwell Green - Original Member
+// TODO: CUSTOMIZATION - Adjust category colors to match your organization's scheme
+val CategoryOM = Color(0xFF48982C)       // Original Member (primary color)
 val CategoryXT = Color(0xFF7B1FA2)       // Purple - Xenos Transfer
 val CategoryRN = Color(0xFFF57C00)       // Orange - Returning New
 val CategoryFT = Color(0xFF66BB3D)       // Light Green - First Timer

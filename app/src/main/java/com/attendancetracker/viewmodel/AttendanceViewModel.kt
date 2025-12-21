@@ -146,7 +146,7 @@ class AttendanceViewModel(
             selectedCount = selected.size,
             totalMembers = filteredMembers.values.sumOf { it.size },
             todayDateString = AttendanceRecord.formatDateForSheet(date),
-            canSave = selected.isNotEmpty()
+            canSave = true  // Always allow saving, even when empty, to enable clearing saved dates
         )
     }.stateIn(
         scope = viewModelScope,

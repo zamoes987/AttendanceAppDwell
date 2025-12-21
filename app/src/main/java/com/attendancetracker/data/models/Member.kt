@@ -58,26 +58,6 @@ data class Member(
     }
 
     /**
-     * DEPRECATED: Use withAttendance() instead for thread-safe updates.
-     * This method is kept temporarily for backward compatibility but mutates shared state.
-     *
-     * @param dateString The date in sheet format (e.g., "11/06/25")
-     * @param present True if present, false if absent
-     */
-    @Deprecated(
-        message = "Use withAttendance() instead for thread-safe immutable updates",
-        replaceWith = ReplaceWith("withAttendance(dateString, present)"),
-        level = DeprecationLevel.WARNING
-    )
-    fun markAttendance(dateString: String, present: Boolean) {
-        // For backward compatibility with GoogleSheetsService which still uses this
-        // This will be removed once all callers are updated
-        if (attendanceHistory is MutableMap) {
-            attendanceHistory[dateString] = present
-        }
-    }
-
-    /**
      * Calculates the member's attendance percentage across all recorded meetings.
      *
      * @return Percentage (0.0 to 100.0) of meetings attended, or 0.0 if no history exists

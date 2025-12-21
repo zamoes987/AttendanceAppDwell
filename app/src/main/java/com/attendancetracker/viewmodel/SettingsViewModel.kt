@@ -1,8 +1,10 @@
 package com.attendancetracker.viewmodel
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.attendancetracker.data.models.AppSettings
+import com.attendancetracker.data.notifications.NotificationHelper
 import com.attendancetracker.data.repository.PreferencesRepository
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,9 +17,11 @@ import kotlinx.coroutines.launch
  * Manages app settings and preferences.
  *
  * @property preferencesRepository Repository for managing preferences
+ * @property notificationHelper Helper for scheduling notifications
  */
 class SettingsViewModel(
-    private val preferencesRepository: PreferencesRepository
+    private val preferencesRepository: PreferencesRepository,
+    private val notificationHelper: NotificationHelper
 ) : ViewModel() {
 
     /**
@@ -45,7 +49,13 @@ class SettingsViewModel(
     fun toggleMorningNotification(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateMorningNotification(enabled)
-            // TODO: Schedule or cancel morning notification
+
+            // Schedule or cancel the notification based on the setting
+            if (enabled) {
+                notificationHelper.scheduleMorningNotification()
+            } else {
+                notificationHelper.cancelMorningNotification()
+            }
         }
     }
 
@@ -55,7 +65,34 @@ class SettingsViewModel(
     fun toggleEveningNotification(enabled: Boolean) {
         viewModelScope.launch {
             preferencesRepository.updateEveningNotification(enabled)
-            // TODO: Schedule or cancel evening notification
+
+            // Schedule or cancel the notification based on the setting
+            if (enabled) {
+                notificationHelper.scheduleEveningNotification()
+            } else {
+                notificationHelper.cancelEveningNotification()
+            }
         }
+    }
+
+    /**
+     * Shows a test notification immediately for testing purposes.
+     */
+    fun showTestNotification() {
+        notificationHelper.showTestNotification()
+    }
+
+    /**
+     * Checks if the app can schedule exact alarms (required for Android 12+).
+     */
+    fun canScheduleExactAlarms(): Boolean {
+        return notificationHelper.canScheduleExactAlarms()
+    }
+
+    /**
+     * Requests permission to schedule exact alarms.
+     */
+    fun requestExactAlarmPermission() {
+        notificationHelper.requestExactAlarmPermission()
     }
 }

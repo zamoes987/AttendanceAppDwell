@@ -1,5 +1,10 @@
 package com.attendancetracker.ui.screens
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -7,10 +12,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -19,13 +27,16 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -35,6 +46,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.attendancetracker.data.auth.AuthManager
 import com.attendancetracker.data.auth.BiometricHelper
 import com.attendancetracker.viewmodel.SettingsViewModel
@@ -70,6 +82,50 @@ fun SettingsScreen(
     var biometricEnabled by remember { mutableStateOf(authManager?.isBiometricEnabled() ?: false) }
     val biometricAvailable = remember {
         biometricHelper?.canAuthenticateWithBiometrics() == BiometricHelper.BiometricAvailability.Available
+    }
+
+    // Notification permission state (Android 13+)
+    var hasNotificationPermission by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                ContextCompat.checkSelfPermission(
+                    context,
+                    Manifest.permission.POST_NOTIFICATIONS
+                ) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true // No runtime permission needed on older Android
+            }
+        )
+    }
+
+    // Exact alarm permission state (Android 12+)
+    val canScheduleExactAlarms = remember { viewModel.canScheduleExactAlarms() }
+
+    // Permission launcher for POST_NOTIFICATIONS
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        hasNotificationPermission = isGranted
+        if (isGranted) {
+            android.widget.Toast.makeText(
+                context,
+                "Notification permission granted!",
+                android.widget.Toast.LENGTH_SHORT
+            ).show()
+        } else {
+            android.widget.Toast.makeText(
+                context,
+                "Notification permission denied. Reminders won't work.",
+                android.widget.Toast.LENGTH_LONG
+            ).show()
+        }
+    }
+
+    // Helper function to request permission if needed
+    val requestPermissionIfNeeded = {
+        if (!hasNotificationPermission && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     Scaffold(
@@ -173,7 +229,24 @@ fun SettingsScreen(
                         }
                         Switch(
                             checked = settings.morningNotificationEnabled,
-                            onCheckedChange = { viewModel.toggleMorningNotification(it) }
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    // Request notification permission first
+                                    requestPermissionIfNeeded()
+
+                                    // Check exact alarm permission before scheduling
+                                    if (!canScheduleExactAlarms) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Please allow exact alarms in the next screen",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                        viewModel.requestExactAlarmPermission()
+                                        return@Switch
+                                    }
+                                }
+                                viewModel.toggleMorningNotification(enabled)
+                            }
                         )
                     }
 
@@ -197,10 +270,101 @@ fun SettingsScreen(
                         }
                         Switch(
                             checked = settings.eveningNotificationEnabled,
-                            onCheckedChange = { viewModel.toggleEveningNotification(it) }
+                            onCheckedChange = { enabled ->
+                                if (enabled) {
+                                    // Request notification permission first
+                                    requestPermissionIfNeeded()
+
+                                    // Check exact alarm permission before scheduling
+                                    if (!canScheduleExactAlarms) {
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            "Please allow exact alarms in the next screen",
+                                            android.widget.Toast.LENGTH_LONG
+                                        ).show()
+                                        viewModel.requestExactAlarmPermission()
+                                        return@Switch
+                                    }
+                                }
+                                viewModel.toggleEveningNotification(enabled)
+                            }
                         )
                     }
-                }
+
+                    Spacer(modifier = Modifier.size(16.dp))
+
+                    // Warning if exact alarm permission is needed (Android 12+)
+                    if (!canScheduleExactAlarms) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Warning,
+                                contentDescription = "Warning",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Permission Required",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                                Text(
+                                    text = "Tap to allow exact alarms",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            TextButton(onClick = { viewModel.requestExactAlarmPermission() }) {
+                                Text("Fix")
+                            }
+                        }
+                        Spacer(modifier = Modifier.size(16.dp))
+                    }
+
+                    // Test notification button
+                    OutlinedButton(
+                        onClick = {
+                            // Check permissions before sending test notification
+                            if (!hasNotificationPermission) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Please grant notification permission first",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                requestPermissionIfNeeded()
+                                return@OutlinedButton
+                            }
+
+                            if (!canScheduleExactAlarms) {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Please allow exact alarms first. Click the 'Fix' button above.",
+                                    android.widget.Toast.LENGTH_LONG
+                                ).show()
+                                return@OutlinedButton
+                            }
+
+                            viewModel.showTestNotification()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Test notification will appear in 3 seconds",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Test"
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Send Test Notification")
+                    }
+}
             }
 
             Spacer(modifier = Modifier.size(16.dp))
@@ -282,6 +446,7 @@ fun SettingsScreen(
 
                     Spacer(modifier = Modifier.size(16.dp))
 
+                    // TODO: CUSTOMIZATION - Replace with your organization name
                     Text(
                         text = "Dwell Community Church",
                         style = MaterialTheme.typography.bodyLarge

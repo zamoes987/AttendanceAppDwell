@@ -15,6 +15,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.attendancetracker.data.auth.AuthManager
 import com.attendancetracker.data.auth.BiometricHelper
+import com.attendancetracker.data.notifications.NotificationHelper
 import com.attendancetracker.data.repository.PreferencesRepository
 import com.attendancetracker.data.repository.SheetsRepository
 import com.attendancetracker.ui.Navigation
@@ -70,6 +71,10 @@ class MainActivity : FragmentActivity() {
             // Initialize managers
             authManager = AuthManager(applicationContext)
             biometricHelper = BiometricHelper(applicationContext)
+
+            // Initialize notification system (create channel)
+            val preferencesRepo = PreferencesRepository(applicationContext)
+            NotificationHelper(applicationContext, preferencesRepo).createNotificationChannel()
 
             // Configure Google Sign-In
             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)

@@ -78,14 +78,6 @@ data class MemberStatistics(
             // Calculate streaks - requires sorted records (newest first)
             val sortedRecords = allRecords.sortedByDescending { it.date }
 
-            // DEBUG: Log for Stormie Harlan
-            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.BASE &&
-                member.name.contains("Stormie", ignoreCase = true)) {
-                android.util.Log.d("Statistics", "Stormie - Total records: ${sortedRecords.size}, Total attendance from history: ${member.getTotalAttendance()}")
-                val presentCount = sortedRecords.count { it.isPresent(member.id) }
-                android.util.Log.d("Statistics", "Stormie - Present in records: $presentCount")
-            }
-
             // Current streak: count from most recent meeting backwards
             var currentStreak = 0
             for (record in sortedRecords) {

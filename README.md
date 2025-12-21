@@ -1,248 +1,232 @@
-# Attendance Tracker App
+# Attendance Tracker
 
 A native Android application for tracking meeting attendance with Google Sheets integration. Built with Kotlin, Jetpack Compose, and Material 3 design.
 
 ## Features
 
-- **Google Sheets Integration**: Read and write attendance data directly to/from Google Sheets
-- **Category-Based Organization**: Organize members by category (OM, XT, RN, FT, V)
-- **Real-time Updates**: See attendance changes immediately
-- **Attendance History**: View past meeting records with statistics
-- **Material 3 Design**: Modern UI with dark mode support
-- **Quick Actions**: Bulk select by category, select all, or clear all
+### Core Functionality
+- **Attendance Marking** - Mark members present with checkboxes, save to Google Sheets
+- **Date Selection** - Material 3 date picker, defaults to current meeting day
+- **Bulk Operations** - Select All / Clear All / category-based selection
+- **Member Management** - Add, edit, and delete members with category assignment
+
+### Analytics & History
+- **Statistics Dashboard** - Overall metrics, category comparisons, attendance trends
+- **Attendance History** - View past meeting records with date filtering
+- **Streak Tracking** - Current and longest attendance streaks per member
+- **Trend Analysis** - Visualize improving/declining attendance patterns
+
+### Authentication & Security
+- **Google Sign-In** - OAuth 2.0 authentication with Google Sheets API
+- **Biometric Authentication** - Optional fingerprint/face unlock
+- **Session Management** - Secure 24-hour sessions with automatic refresh
+- **Encrypted Storage** - Credentials stored in EncryptedSharedPreferences
+
+### Notifications
+- **Scheduled Reminders** - Thursday morning (8 AM) and evening (7 PM) notifications
+- **Boot Persistence** - Alarms survive device restarts
+
+### Design
+- **Material 3 UI** - Modern Material You design language
+- **Dark Mode** - Full light/dark theme support
+- **Responsive Layout** - Works on phones and tablets
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Language | Kotlin |
+| UI Framework | Jetpack Compose |
+| Architecture | MVVM with Clean Architecture |
+| Design System | Material 3 |
+| Backend | Google Sheets API v4 |
+| Auth | Google Sign-In + OAuth 2.0 |
+| Async | Kotlin Coroutines & StateFlow |
+| Navigation | Jetpack Navigation Compose |
+| Storage | DataStore + EncryptedSharedPreferences |
+| Biometrics | AndroidX Biometric |
 
 ## Prerequisites
 
-Before you begin, ensure you have:
+- **Android Studio** Hedgehog (2023.1.1) or newer
+- **JDK 17** or higher
+- **Android Device/Emulator** API 24+ (Android 7.0+)
+- **Google Cloud Account** for API credentials
+- **Google Sheet** with proper structure (see below)
 
-- **Android Studio** (latest version recommended)
-- **Google Account** with access to your attendance Google Sheet
-- **Google Cloud Account** for API credentials setup
-- **Android Device or Emulator** (API Level 24 / Android 7.0 or higher)
+## Quick Start
 
-## Google Cloud Setup
-
-### 1. Create a Google Cloud Project
-
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Click "Select a project" → "New Project"
-3. Enter project name: "Attendance Tracker"
-4. Click "Create"
-
-### 2. Enable Google Sheets API
-
-1. In your Google Cloud project, go to "APIs & Services" → "Library"
-2. Search for "Google Sheets API"
-3. Click on it and click "Enable"
-
-### 3. Configure OAuth Consent Screen
-
-1. Go to "APIs & Services" → "OAuth consent screen"
-2. Select "External" user type
-3. Fill in required fields:
-   - App name: "Attendance Tracker"
-   - User support email: Your email
-   - Developer contact: Your email
-4. Click "Save and Continue"
-5. On Scopes page, click "Add or Remove Scopes"
-6. Add the scope: `https://www.googleapis.com/auth/spreadsheets`
-7. Click "Save and Continue"
-8. Add test users (your Google account email)
-9. Click "Save and Continue"
-
-### 4. Create Android OAuth Credentials
-
-1. Go to "APIs & Services" → "Credentials"
-2. Click "Create Credentials" → "OAuth client ID"
-3. Application type: "Android"
-4. Name: "Attendance Tracker Android"
-5. Package name: `com.attendancetracker`
-6. **SHA-1 certificate fingerprint**: (See "Get SHA-1 Fingerprint" section below)
-7. Click "Create"
-
-### 5. Get SHA-1 Fingerprint
-
-**Method 1: Using Android Studio**
-1. Open your project in Android Studio
-2. Open the Gradle panel (right side)
-3. Navigate to: `AttendanceTrackerApp` → `Tasks` → `android` → `signingReport`
-4. Double-click `signingReport`
-5. Look for "SHA1" in the output (under "debug" variant)
-6. Copy this SHA-1 fingerprint
-
-**Method 2: Using Command Line**
-```bash
-# Windows
-cd C:\Users\[YourUsername]\.android
-keytool -list -v -keystore debug.keystore -alias androiddebugkey -storepass android -keypass android
-
-# Mac/Linux
-keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android
-```
-
-Look for "SHA1:" in the output and copy the fingerprint.
-
-### 6. Get Your Google Sheet ID
-
-1. Open your Google Sheet in a web browser
-2. Look at the URL: `https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID_HERE/edit`
-3. Copy the long string between `/d/` and `/edit` - this is your Sheet ID
-
-## Project Setup
-
-### 1. Clone or Extract the Project
+### 1. Clone the Repository
 
 ```bash
-cd C:\Users\zanee\AppDevAttendance
+git clone https://github.com/zamoes987/AttendanceAppDwell.git
+cd AttendanceAppDwell
 ```
 
-### 2. Open in Android Studio
+### 2. Google Cloud Setup
 
-1. Open Android Studio
-2. Click "Open" and select the `AppDevAttendance` folder
-3. Wait for Gradle sync to complete
+1. Create a project at [Google Cloud Console](https://console.cloud.google.com/)
+2. Enable **Google Sheets API**
+3. Configure **OAuth consent screen** (External, add Sheets scope)
+4. Create **Android OAuth 2.0 credentials**:
+   - Package name: `com.attendancetracker`
+   - SHA-1 fingerprint: Get via `./gradlew signingReport`
+5. Add test users (your Google account)
 
-### 3. Configure Google Sheet ID
+### 3. Configure the App
 
-1. Open `app/src/main/java/com/attendancetracker/data/api/GoogleSheetsService.kt`
-2. Find the line:
-   ```kotlin
-   private val SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
-   ```
-3. Replace `"YOUR_SPREADSHEET_ID_HERE"` with your actual Google Sheet ID (keep the quotes)
+Edit `app/src/main/java/com/attendancetracker/data/api/GoogleSheetsService.kt`:
 
-Example:
 ```kotlin
-private val SPREADSHEET_ID = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+private val SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"  // Replace with your Sheet ID
 ```
 
-### 4. Verify Google Sheet Structure
+Find your Sheet ID in the URL: `https://docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit`
 
-Your Google Sheet should have a tab named "2025" with this structure:
+### 4. Build and Run
 
-| Column A | Column B | Column C (Date 1) | Column D (Date 2) | ... |
-|----------|----------|-------------------|-------------------|-----|
-| Name     | Status   | 1/2/25            | 1/9/25            | ... |
-| John Doe | OM       | x                 |                   | ... |
-| Jane Smith | XT     | x                 | x                 | ... |
+```bash
+./gradlew assembleDebug
+./gradlew installDebug
+```
 
-- **Column A**: Member names
-- **Column B**: Category abbreviation (OM, XT, RN, FT, or V)
-- **Columns C+**: Dates in format "M/d/yy" with "x" marking attendance
+Or use Android Studio's Run button.
 
-## Building and Running
+## Google Sheet Structure
 
-### 1. Connect Your Android Device
+Create a tab named "2025" (or current year) with this structure:
 
-**Option A: Physical Device**
-1. Enable Developer Options on your Android device:
-   - Go to Settings → About Phone
-   - Tap "Build Number" 7 times
-   - Go back to Settings → Developer Options
-2. Enable "USB Debugging"
-3. Connect device via USB
-4. Allow USB debugging when prompted
+| Column A | Column B | Column C | Column D+ |
+|----------|----------|----------|-----------|
+| *(category marker)* | Member Name | Category | Date Headers (M/d/yy) |
+| OM | John Smith | OM | x |
+| OM | Jane Doe | OM | x |
+| XT | Alex Johnson | XT | |
+| V | New Person | V | x |
 
-**Option B: Emulator**
-1. In Android Studio: Tools → Device Manager
-2. Create a new virtual device (Pixel 5 recommended)
-3. Select system image (API 34 recommended)
-4. Finish setup and start emulator
+- **Column A**: Category markers (OM, XT, FT/RN, V) - used for visual grouping
+- **Column B**: Member names
+- **Column C**: Category abbreviations (OM, XT, RN, FT, V)
+- **Column D+**: Date columns with "x" for present, empty for absent
 
-### 2. Build and Run
-
-1. In Android Studio, select your device from the device dropdown
-2. Click the green "Run" button (or press Shift+F10)
-3. Wait for the app to build and install
-4. The app should launch automatically
-
-### 3. Sign In
-
-1. Click "Sign in with Google"
-2. Select your Google account
-3. Grant permissions:
-   - Access to Google Sheets
-   - Access to your account info
-4. You should see the attendance screen with your member list
-
-## Troubleshooting
-
-### "Failed to load members" Error
-- Verify your Sheet ID is correct in `GoogleSheetsService.kt`
-- Ensure the sheet has a tab named "2025"
-- Check that columns A and B contain member names and categories
-
-### Sign-In Fails
-- Verify SHA-1 fingerprint is correctly added to Google Cloud OAuth credentials
-- Ensure you're using the same Google account that has access to the sheet
-- Try revoking and re-granting permissions
-
-### "API not enabled" Error
-- Go to Google Cloud Console and ensure Google Sheets API is enabled
-- Wait a few minutes after enabling (can take time to propagate)
-
-### Build Errors
-- Ensure you're using JDK 17
-- File → Invalidate Caches → Invalidate and Restart
-- Clean project: Build → Clean Project
-- Rebuild: Build → Rebuild Project
-
-### Permission Denied
-- Ensure your Google account has Editor or Owner access to the sheet
-- Check OAuth consent screen includes the correct scope
-- Verify test users includes your Google account
+### Category Codes
+- **OM** - Original Member
+- **XT** - Transfer
+- **RN** - Returning New
+- **FT** - First Timer
+- **V** - Visitor
 
 ## Project Structure
 
 ```
 app/src/main/java/com/attendancetracker/
-├── MainActivity.kt                 # App entry point
+├── MainActivity.kt                    # Entry point, auth flow
 ├── data/
-│   ├── models/
-│   │   ├── Category.kt            # Member category enum
-│   │   ├── Member.kt              # Member data class
-│   │   └── AttendanceRecord.kt    # Attendance record data class
 │   ├── api/
-│   │   └── GoogleSheetsService.kt # Google Sheets API integration
+│   │   └── GoogleSheetsService.kt     # Sheets API operations
+│   ├── auth/
+│   │   ├── AuthManager.kt             # Session management
+│   │   └── BiometricHelper.kt         # Biometric auth
+│   ├── models/
+│   │   ├── Member.kt                  # Member data class
+│   │   ├── AttendanceRecord.kt        # Meeting attendance
+│   │   ├── Category.kt                # Category enum
+│   │   └── Statistics.kt              # Analytics models
+│   ├── notifications/
+│   │   ├── NotificationHelper.kt      # Alarm scheduling
+│   │   ├── NotificationReceiver.kt    # Alarm handler
+│   │   └── BootReceiver.kt            # Boot persistence
 │   └── repository/
-│       └── SheetsRepository.kt    # Repository layer
+│       ├── SheetsRepository.kt        # Data abstraction
+│       └── PreferencesRepository.kt   # Settings storage
 ├── ui/
 │   ├── screens/
-│   │   ├── SignInScreen.kt        # Google sign-in screen
-│   │   ├── HomeScreen.kt          # Main attendance marking screen
-│   │   └── HistoryScreen.kt       # Attendance history screen
-│   ├── components/
-│   │   ├── MemberListItem.kt      # Member card component
-│   │   ├── CategoryHeader.kt      # Category header component
-│   │   └── CommonComponents.kt    # Reusable UI components
-│   ├── theme/
-│   │   ├── Color.kt               # Color definitions
-│   │   ├── Theme.kt               # Material 3 theme
-│   │   └── Type.kt                # Typography definitions
-│   └── Navigation.kt              # Navigation setup
+│   │   ├── HomeScreen.kt              # Main attendance UI
+│   │   ├── HistoryScreen.kt           # Past meetings
+│   │   ├── StatisticsScreen.kt        # Analytics dashboard
+│   │   ├── MembersScreen.kt           # Member management
+│   │   ├── SettingsScreen.kt          # App settings
+│   │   └── SignInScreen.kt            # Google sign-in
+│   ├── components/                    # Reusable UI components
+│   ├── theme/                         # Material 3 theme
+│   └── Navigation.kt                  # Nav graph
 └── viewmodel/
-    └── AttendanceViewModel.kt     # ViewModel for UI state
+    ├── AttendanceViewModel.kt         # Main state management
+    └── SettingsViewModel.kt           # Settings state
 ```
 
-## Technologies Used
+## Customization Guide
 
-- **Language**: Kotlin
-- **UI Framework**: Jetpack Compose
-- **Architecture**: MVVM (Model-View-ViewModel)
-- **Design**: Material 3
-- **Backend**: Google Sheets API v4
-- **Authentication**: Google Sign-In
-- **Async**: Kotlin Coroutines & Flow
-- **Navigation**: Jetpack Navigation Compose
+This app is designed to be easily adapted for your organization.
+
+### Branding (look for `TODO: CUSTOMIZATION` comments)
+
+| File | What to Change |
+|------|----------------|
+| `ui/screens/HomeScreen.kt` | Organization name in TopAppBar |
+| `ui/screens/SignInScreen.kt` | Sign-in screen branding |
+| `ui/screens/SettingsScreen.kt` | About section organization name |
+| `ui/theme/Color.kt` | Primary/secondary brand colors |
+
+### Configuration
+
+| File | What to Change |
+|------|----------------|
+| `data/api/GoogleSheetsService.kt` | `SPREADSHEET_ID` and `currentYearTab` |
+| `ui/screens/HomeScreen.kt` | External submission URL (if needed) |
+
+### Meeting Schedule
+
+Notification times are configured in `data/notifications/NotificationHelper.kt`:
+- `scheduleMorningNotification()` - Currently Thursday 8 AM
+- `scheduleEveningNotification()` - Currently Thursday 7 PM
+
+## Troubleshooting
+
+### "Failed to load members"
+- Verify Sheet ID is correct
+- Ensure sheet has a tab matching `currentYearTab` (default: "2025")
+- Check member data exists in columns B and C
+
+### Sign-In Issues
+- Verify SHA-1 fingerprint in Google Cloud matches your keystore
+- Ensure Google account is added as a test user in OAuth consent screen
+- Try clearing app data and signing in again
+
+### API Errors
+- Confirm Google Sheets API is enabled in Cloud Console
+- Check your Google account has edit access to the sheet
+- Look for detailed errors in Android Studio Logcat
+
+### Build Errors
+- Ensure JDK 17 is configured
+- Run `./gradlew clean` then rebuild
+- File > Invalidate Caches in Android Studio
+
+## Known Limitations
+
+- Requires internet connection for most operations (no offline mode)
+- Single spreadsheet support (multi-spreadsheet would require code changes)
+- Year-based sheet tabs require annual tab creation
+- Test users limit in External OAuth mode (publish app for production)
+
+## Contributing
+
+Contributions are welcome! Please:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-This project is created for educational and internal use.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Support
+## Acknowledgments
 
-For issues or questions:
-1. Check the Troubleshooting section above
-2. Review Google Cloud Console for API/auth issues
-3. Verify Google Sheet structure and permissions
-4. Check Android Studio Logcat for detailed error messages
+- Built with [Jetpack Compose](https://developer.android.com/jetpack/compose)
+- Uses [Google Sheets API](https://developers.google.com/sheets/api)
+- Design follows [Material 3 Guidelines](https://m3.material.io/)
+- AI-assisted development with Claude Code

@@ -17,8 +17,8 @@ You are an expert Google Sheets API v4 developer specializing in the Attendance 
 Read `CLAUDE.md` for full architecture. Key integration details:
 
 **Current Configuration**:
-- Spreadsheet ID: `1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM`
-- Sheet tab: "2025"
+- Spreadsheet ID: Configure in `GoogleSheetsService.kt` (replace `YOUR_SPREADSHEET_ID_HERE`)
+- Sheet tab: "2025" (year-based, update annually)
 - Service file: `data/api/GoogleSheetsService.kt`
 
 **Sheet Structure**:

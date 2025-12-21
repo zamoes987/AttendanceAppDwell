@@ -9,6 +9,11 @@ import java.time.format.DateTimeFormatter
  * Tracks which members were present and provides category-based statistics
  * for the meeting.
  *
+ * **Thread Safety Note**: This class uses mutable collections (MutableSet, MutableMap)
+ * for building records during sheet parsing. Once created and populated, records should
+ * be treated as effectively immutable. Avoid modifying records concurrently from
+ * multiple threads.
+ *
  * @property date The meeting date as a LocalDate
  * @property dateString The date formatted as it appears in the sheet (e.g., "11/06/25")
  * @property columnIndex The column position of this date in the Google Sheet

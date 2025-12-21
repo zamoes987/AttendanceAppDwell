@@ -50,9 +50,9 @@ fun SignInScreen(
             verticalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
-            // Dwell CC Logo
+            // TODO: CUSTOMIZATION - Replace with your organization's name/logo
             Text(
-                text = "DWELL",
+                text = "DWELL",  // TODO: Your organization name
                 fontSize = 48.sp,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
@@ -60,7 +60,7 @@ fun SignInScreen(
             )
 
             Text(
-                text = "COMMUNITY CHURCH",
+                text = "COMMUNITY CHURCH",  // TODO: Your organization subtitle
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Normal,
                 color = MaterialTheme.colorScheme.secondary,

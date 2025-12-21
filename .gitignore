@@ -123,3 +123,35 @@ com_crashlytics_export_strings.xml
 crashlytics.properties
 crashlytics-build.properties
 fabric.properties
+
+# Development logs and debug files
+*.log
+crash_log.txt
+crash_test.txt
+switch_crash.txt
+build_log.txt
+build_new.txt
+build_output.txt
+build_clean.txt
+Errors.txt
+
+# Data exports and sensitive CSV files
+*.csv
+
+# Notes and temporary instruction files
+updates*.txt
+*instructions*.txt
+*Instructions*.txt
+
+# Node modules (if present)
+node_modules/
+
+# Null device artifact (Windows)
+nul
+
+# Claude Code local files (user-specific)
+.claude/settings.local.json
+.claude/PROJECT_MEMORY.md
+
+# IDE deployment targets (device-specific)
+.idea/deploymentTargetSelector.xml
