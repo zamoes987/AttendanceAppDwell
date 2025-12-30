@@ -28,14 +28,14 @@ class PreferencesRepository(private val context: Context) {
          * Default spreadsheet ID for the app owner (Dwell CC).
          * Other users will need to configure their own spreadsheet ID.
          */
-        // TODO: Replace with your Google Sheets spreadsheet ID
+        // TODO: Replace with your Google Sheets spreadsheet ID (see local-config.md)
         const val DEFAULT_SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
 
         /**
          * Email address of the app owner. Used for first-run detection.
          * If the signed-in user matches this email, the default spreadsheet is used automatically.
          */
-        // TODO: Replace with your email address
+        // TODO: Replace with your email address (see local-config.md)
         const val OWNER_EMAIL = "your-email@example.com"
 
         val SPREADSHEET_ID_KEY = stringPreferencesKey("spreadsheet_id")

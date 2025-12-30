@@ -181,3 +181,6 @@ BACKUP_*.md
 *_GUIDE.md
 FUTURE_*.md
 CLAUDE_CODE_SCRIPT.md
+
+# Local config with sensitive values (NEVER commit)
+local-config.md

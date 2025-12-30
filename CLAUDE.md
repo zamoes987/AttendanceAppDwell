@@ -811,3 +811,29 @@ The `/jeff` command invokes a Senior Engineering Manager persona that coordinate
 - `/feature` - Feature planning
 
 Use `/jeff` for complex multi-component tasks that need coordination.
+
+### GitHub Push Workflow (IMPORTANT)
+
+When user asks to push to GitHub, **ALWAYS** follow this workflow to protect sensitive data:
+
+**Step 1: Sanitize before pushing**
+Replace these values with placeholders:
+```kotlin
+// PreferencesRepository.kt
+const val DEFAULT_SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
+const val OWNER_EMAIL = "your-email@example.com"
+
+// HomeScreen.kt
+val submitUrl = "https://your-organization.org/attendance-submit"
+```
+
+**Step 2: Commit and push the sanitized version**
+
+**Step 3: Restore local values immediately after push**
+Put back the real values (stored in local-config.md, NOT tracked by git) so the app continues to work locally.
+
+**Result**: GitHub has safe placeholders, local has working values.
+
+**Files with sensitive data** (always check these before push):
+- `app/src/main/java/com/attendancetracker/data/repository/PreferencesRepository.kt` - spreadsheet ID, owner email
+- `app/src/main/java/com/attendancetracker/ui/screens/HomeScreen.kt` - organization URL
