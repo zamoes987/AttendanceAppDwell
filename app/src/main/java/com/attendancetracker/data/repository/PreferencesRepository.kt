@@ -24,7 +24,19 @@ class PreferencesRepository(private val context: Context) {
     private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
     companion object {
-        val SPREADSHEET_ID = stringPreferencesKey("spreadsheet_id")
+        /**
+         * Default spreadsheet ID for the app owner (Dwell CC).
+         * Other users will need to configure their own spreadsheet ID.
+         */
+        const val DEFAULT_SPREADSHEET_ID = "1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM"
+
+        /**
+         * Email address of the app owner. Used for first-run detection.
+         * If the signed-in user matches this email, the default spreadsheet is used automatically.
+         */
+        const val OWNER_EMAIL = "zanee40@gmail.com"
+
+        val SPREADSHEET_ID_KEY = stringPreferencesKey("spreadsheet_id")
         val MORNING_NOTIFICATION = booleanPreferencesKey("morning_notification")
         val EVENING_NOTIFICATION = booleanPreferencesKey("evening_notification")
         private val STATISTICS_SORT_KEY = stringPreferencesKey("statistics_sort")
@@ -36,7 +48,7 @@ class PreferencesRepository(private val context: Context) {
      */
     val settingsFlow: Flow<AppSettings> = context.dataStore.data.map { preferences ->
         AppSettings(
-            spreadsheetId = preferences[SPREADSHEET_ID] ?: "",
+            spreadsheetId = preferences[SPREADSHEET_ID_KEY] ?: "",
             morningNotificationEnabled = preferences[MORNING_NOTIFICATION] ?: true,
             eveningNotificationEnabled = preferences[EVENING_NOTIFICATION] ?: true
         )
@@ -47,7 +59,7 @@ class PreferencesRepository(private val context: Context) {
      */
     suspend fun updateSpreadsheetId(id: String) {
         context.dataStore.edit { preferences ->
-            preferences[SPREADSHEET_ID] = id
+            preferences[SPREADSHEET_ID_KEY] = id
         }
     }
 
@@ -70,13 +82,46 @@ class PreferencesRepository(private val context: Context) {
     }
 
     /**
-     * Gets the current spreadsheet ID.
-     * FIXED: Use first() instead of broken collect {} pattern.
+     * Gets the current spreadsheet ID from preferences.
+     * Returns empty string if not set.
      */
     suspend fun getSpreadsheetId(): String {
         return context.dataStore.data.map { preferences ->
-            preferences[SPREADSHEET_ID] ?: ""
+            preferences[SPREADSHEET_ID_KEY] ?: ""
         }.first()
+    }
+
+    /**
+     * Gets the effective spreadsheet ID for a given user email.
+     * - If the user is the owner, returns the default spreadsheet ID.
+     * - If the user has a saved spreadsheet ID, returns that.
+     * - Otherwise, returns empty string (user needs to set up).
+     *
+     * @param userEmail The signed-in user's email address
+     * @return The spreadsheet ID to use, or empty string if setup needed
+     */
+    suspend fun getEffectiveSpreadsheetId(userEmail: String): String {
+        // Owner always uses default spreadsheet
+        if (userEmail.equals(OWNER_EMAIL, ignoreCase = true)) {
+            return DEFAULT_SPREADSHEET_ID
+        }
+        // Other users use their saved spreadsheet ID
+        return getSpreadsheetId()
+    }
+
+    /**
+     * Checks if a user needs to complete setup (configure spreadsheet ID).
+     *
+     * @param userEmail The signed-in user's email address
+     * @return true if setup is needed, false otherwise
+     */
+    suspend fun needsSetup(userEmail: String): Boolean {
+        // Owner never needs setup
+        if (userEmail.equals(OWNER_EMAIL, ignoreCase = true)) {
+            return false
+        }
+        // Other users need setup if they don't have a spreadsheet ID configured
+        return getSpreadsheetId().isBlank()
     }
 
     /**

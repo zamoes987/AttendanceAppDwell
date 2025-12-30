@@ -307,16 +307,12 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp)
                         ) {
-                            // Submit Attendance button - opens external submission portal
-                            // TODO: Replace with your organization's attendance submission URL
+                            // Submit Attendance to Dwell CC button
                             Button(
                                 onClick = {
-                                    // Configure this URL for your organization's submission portal
-                                    val submitUrl = "YOUR_SUBMISSION_URL_HERE"
-                                    if (submitUrl != "YOUR_SUBMISSION_URL_HERE") {
-                                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
-                                        context.startActivity(intent)
-                                    }
+                                    val submitUrl = "https://www.dwellcc.org/page/11826?rckipid=EAAAAI8fK!2fXb!2fM90kNNxdXvG1!2bnJSQZY6DszwhSHHN9Op54IBzWCxFtD7!2bAasptQyuNH3cvc1iHs1Mv3Cl7f7P8TrEM!3d&GroupId=188431&Occurrence=2025-11-20T19%3A00%3A00&returnToPage=https://dwellcc.org"
+                                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
+                                    context.startActivity(intent)
                                 },
                                 modifier = Modifier.fillMaxWidth(),
                                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(

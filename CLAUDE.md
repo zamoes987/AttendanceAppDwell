@@ -746,3 +746,68 @@ No comprehensive test suite currently implemented. When adding tests:
 - Instrumented tests: Place in `app/src/androidTest/`
 - Mock `GoogleSheetsService` for repository tests
 - Use Compose test utilities for UI tests (`ui-test-junit4`)
+
+## Development Environment Setup (December 2025)
+
+### Windows PATH Configuration
+Java and ADB have been added to the User PATH for USB debugging:
+
+| Tool | Path |
+|------|------|
+| Java | `C:\Program Files\Android\Android Studio\jbr\bin` |
+| ADB | `C:\Users\zanee\AppData\Local\Android\Sdk\platform-tools` |
+| JAVA_HOME | `C:\Program Files\Android\Android Studio\jbr` |
+
+**For Gradle builds in bash/terminal**, set JAVA_HOME first:
+```bash
+export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
+export PATH="$JAVA_HOME/bin:$PATH"
+./gradlew assembleDebug
+```
+
+### USB Debugging
+To install APK to connected device:
+```bash
+adb devices  # Verify device connected
+adb install -r app/build/outputs/apk/debug/app-debug.apk
+```
+
+## Recent Bug Fixes (December 30, 2025)
+
+### Dynamic Year Tab Bug - FIXED
+**File**: `data/api/GoogleSheetsService.kt` line 57-58
+
+**Problem**: Changed from hardcoded `"2025"` to dynamic `java.time.Year.now().toString()`. This caused app to fail loading when device date was near year boundary (looking for "2026" tab that doesn't exist).
+
+**Fix Applied**: Reverted to stable hardcoded value:
+```kotlin
+// CORRECT - stable
+private val currentYearTab: String = "2025"
+
+// WRONG - caused app to break near year end
+private val currentYearTab: String
+    get() = java.time.Year.now().toString()
+```
+
+**Lesson**: Do not make year tab dynamic without fallback logic to handle missing tabs.
+
+## Session Notes for Claude
+
+### Working Style Preference
+User prefers:
+- **Sonnet agents** for research, exploration, and analysis tasks
+- **Opus 4.5 (direct)** for coding and implementation
+
+Use `model: "sonnet"` parameter when spawning Task agents for non-coding work.
+
+### Jeff's Team (Slash Commands)
+The `/jeff` command invokes a Senior Engineering Manager persona that coordinates specialists:
+- `/compose` - UI and Jetpack Compose
+- `/sheets-api` - Google Sheets integration
+- `/auth` - Authentication and security
+- `/data-layer` - Repository and state management
+- `/debug` - Troubleshooting
+- `/test` - Testing
+- `/feature` - Feature planning
+
+Use `/jeff` for complex multi-component tasks that need coordination.

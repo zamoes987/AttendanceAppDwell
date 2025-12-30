@@ -38,33 +38,24 @@ import java.time.LocalDate
  * 1. Google Cloud Project with Sheets API enabled
  * 2. OAuth 2.0 credentials configured for Android
  * 3. User must sign in with Google account that has access to the spreadsheet
- * 4. SPREADSHEET_ID must be configured to your actual Google Sheet ID
+ * 4. spreadsheetId must be provided (from PreferencesRepository or default)
  *
  * @property context Application context for credential management
+ * @property spreadsheetId The ID of the Google Spreadsheet to read/write from
  * @property accountName Google account email address for authentication
  */
 class GoogleSheetsService(
     private val context: Context,
+    private val spreadsheetId: String,
     private val accountName: String
 ) {
-    /**
-     * The ID of the Google Spreadsheet to read/write from.
-     *
-     * IMPORTANT: Replace this with your actual spreadsheet ID!
-     * You can find this in the URL of your Google Sheet:
-     * https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID_HERE/edit
-     *
-     * TODO: For production use, consider loading this from:
-     * - BuildConfig fields (set in build.gradle)
-     * - A configuration file
-     * - User settings (already supported via PreferencesRepository)
-     */
-    private val SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
 
     /**
      * The name of the tab/sheet to use for the current year.
+     * Hardcoded to avoid runtime issues if year tab doesn't exist.
+     * Update this value when creating a new year's tab in the spreadsheet.
      */
-    private val currentYearTab = "2025"
+    private val currentYearTab: String = "2025"
 
     /**
      * Google account credential initialized with Sheets API scope.
@@ -142,7 +133,7 @@ class GoogleSheetsService(
         try {
             val range = "$currentYearTab!B:C"
             val response = sheetsService.spreadsheets().values()
-                .get(SPREADSHEET_ID, range)
+                .get(spreadsheetId, range)
                 .execute()
 
             val values = response.getValues() ?: return@withContext Result.failure(
@@ -226,7 +217,7 @@ class GoogleSheetsService(
             // First, read the header row to find the date column
             val headerRange = "$currentYearTab!1:1"
             val headerResponse = sheetsService.spreadsheets().values()
-                .get(SPREADSHEET_ID, headerRange)
+                .get(spreadsheetId, headerRange)
                 .execute()
 
             val headerRow = headerResponse.getValues()?.firstOrNull()
@@ -246,7 +237,7 @@ class GoogleSheetsService(
             val columnLetter = indexToColumnLetter(columnIndex)
             val dataRange = "$currentYearTab!$columnLetter:$columnLetter"
             val dataResponse = sheetsService.spreadsheets().values()
-                .get(SPREADSHEET_ID, dataRange)
+                .get(spreadsheetId, dataRange)
                 .execute()
 
             val columnData = dataResponse.getValues() ?: return@withContext Result.success(null)
@@ -309,7 +300,7 @@ class GoogleSheetsService(
                 // Read the entire data range
                 val range = "$currentYearTab!A1:ZZ"
                 val response = sheetsService.spreadsheets().values()
-                    .get(SPREADSHEET_ID, range)
+                    .get(spreadsheetId, range)
                     .execute()
 
                 val values = response.getValues() ?: return@withContext Result.failure(
@@ -444,7 +435,7 @@ class GoogleSheetsService(
             // Read header row to check if date column exists
             val headerRange = "$currentYearTab!1:1"
             val headerResponse = sheetsService.spreadsheets().values()
-                .get(SPREADSHEET_ID, headerRange)
+                .get(spreadsheetId, headerRange)
                 .execute()
 
             val headerRow = headerResponse.getValues()?.firstOrNull()?.toMutableList()
@@ -507,13 +498,13 @@ class GoogleSheetsService(
                 .setData(updates)
 
             sheetsService.spreadsheets().values()
-                .batchUpdate(SPREADSHEET_ID, batchRequest)
+                .batchUpdate(spreadsheetId, batchRequest)
                 .execute()
 
             // TASK #4 FIX: Add concurrent write detection
             try {
                 val verifyResponse = sheetsService.spreadsheets().values()
-                    .get(SPREADSHEET_ID, headerRange)
+                    .get(spreadsheetId, headerRange)
                     .execute()
                 val verifyHeader = verifyResponse.getValues()?.firstOrNull() ?: emptyList()
                 val dateCount = verifyHeader.count { cell ->
@@ -555,13 +546,57 @@ class GoogleSheetsService(
         try {
             val range = "$currentYearTab!B1:C1"
             sheetsService.spreadsheets().values()
-                .get(SPREADSHEET_ID, range)
+                .get(spreadsheetId, range)
                 .execute()
             Result.success(true)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+
+    /**
+     * Gets the list of available sheet tabs (years) in the spreadsheet.
+     *
+     * Useful for detecting available years and validating sheet structure.
+     *
+     * @return Result containing list of sheet tab names, or failure with exception
+     */
+    suspend fun getAvailableTabs(): Result<List<String>> = withContext(Dispatchers.IO) {
+        if (!isNetworkAvailable()) {
+            return@withContext Result.failure(Exception("No internet connection"))
+        }
+
+        try {
+            val spreadsheet = sheetsService.spreadsheets()
+                .get(spreadsheetId)
+                .execute()
+
+            val tabNames = spreadsheet.sheets?.mapNotNull { sheet ->
+                sheet.properties?.title
+            } ?: emptyList()
+
+            Result.success(tabNames)
+        } catch (e: UserRecoverableAuthIOException) {
+            Result.failure(Exception("Authentication expired. Please sign in again."))
+        } catch (e: GoogleJsonResponseException) {
+            if (e.statusCode == 404) {
+                Result.failure(Exception("Spreadsheet not found. Please check the Spreadsheet ID."))
+            } else if (e.statusCode == 403) {
+                Result.failure(Exception("Permission denied. You need access to this spreadsheet."))
+            } else {
+                Result.failure(e)
+            }
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Gets the current year tab name being used.
+     *
+     * @return The current year as a string (e.g., "2025")
+     */
+    fun getYearTab(): String = currentYearTab
 
     /**
      * Adds a new member to the Google Sheet.
@@ -581,7 +616,7 @@ class GoogleSheetsService(
             // Read columns B and C to find where to insert
             val readRange = "$currentYearTab!B:C"
             val response = sheetsService.spreadsheets().values()
-                .get(SPREADSHEET_ID, readRange)
+                .get(spreadsheetId, readRange)
                 .execute()
 
             val values = response.getValues() ?: emptyList()
@@ -606,7 +641,7 @@ class GoogleSheetsService(
                 // Read column A to find category markers
                 val colARange = "$currentYearTab!A:A"
                 val colAResponse = sheetsService.spreadsheets().values()
-                    .get(SPREADSHEET_ID, colARange)
+                    .get(spreadsheetId, colARange)
                     .execute()
 
                 val colAValues = colAResponse.getValues() ?: emptyList()
@@ -636,7 +671,7 @@ class GoogleSheetsService(
 
             // Insert a new row using the Sheets API
             val spreadsheet = sheetsService.spreadsheets()
-                .get(SPREADSHEET_ID)
+                .get(spreadsheetId)
                 .execute()
 
             val sheetId = spreadsheet.sheets.find {
@@ -661,7 +696,7 @@ class GoogleSheetsService(
                 .setRequests(listOf(insertRequest))
 
             sheetsService.spreadsheets()
-                .batchUpdate(SPREADSHEET_ID, batchUpdateRequest)
+                .batchUpdate(spreadsheetId, batchUpdateRequest)
                 .execute()
 
             // Now write the member data to the newly inserted row
@@ -673,7 +708,7 @@ class GoogleSheetsService(
             val body = ValueRange().setValues(newValues)
 
             sheetsService.spreadsheets().values()
-                .update(SPREADSHEET_ID, writeRange, body)
+                .update(spreadsheetId, writeRange, body)
                 .setValueInputOption("RAW")
                 .execute()
 
@@ -718,7 +753,7 @@ class GoogleSheetsService(
             val body = ValueRange().setValues(values)
 
             sheetsService.spreadsheets().values()
-                .update(SPREADSHEET_ID, range, body)
+                .update(spreadsheetId, range, body)
                 .setValueInputOption("RAW")
                 .execute()
 
@@ -754,7 +789,7 @@ class GoogleSheetsService(
         try {
             // First, get the sheet ID for the current year tab
             val spreadsheet = sheetsService.spreadsheets()
-                .get(SPREADSHEET_ID)
+                .get(spreadsheetId)
                 .execute()
 
             val sheetId = spreadsheet.sheets?.find {
@@ -782,7 +817,7 @@ class GoogleSheetsService(
                 .setRequests(listOf(deleteRequest))
 
             sheetsService.spreadsheets()
-                .batchUpdate(SPREADSHEET_ID, batchUpdateRequest)
+                .batchUpdate(spreadsheetId, batchUpdateRequest)
                 .execute()
 
             Result.success(Unit)

@@ -52,6 +52,7 @@ class MainActivity : FragmentActivity() {
     private lateinit var googleSignInClient: GoogleSignInClient
     private lateinit var authManager: AuthManager
     private lateinit var biometricHelper: BiometricHelper
+    private lateinit var preferencesRepository: PreferencesRepository
     private var repository: SheetsRepository? = null
     private var viewModel: AttendanceViewModel? = null
 
@@ -72,9 +73,11 @@ class MainActivity : FragmentActivity() {
             authManager = AuthManager(applicationContext)
             biometricHelper = BiometricHelper(applicationContext)
 
+            // Initialize preferences repository ONCE (DataStore requires singleton)
+            preferencesRepository = PreferencesRepository(applicationContext)
+
             // Initialize notification system (create channel)
-            val preferencesRepo = PreferencesRepository(applicationContext)
-            NotificationHelper(applicationContext, preferencesRepo).createNotificationChannel()
+            NotificationHelper(applicationContext, preferencesRepository).createNotificationChannel()
 
             // Configure Google Sign-In
             val gso = GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
@@ -297,54 +300,111 @@ class MainActivity : FragmentActivity() {
 
     /**
      * Initializes the app with repository and ViewModel.
+     * Handles first-run detection for new users who need to configure their spreadsheet.
      */
     private fun initializeApp(email: String) {
-        try {
-            // Save auth state
-            authManager.saveAuthState(email)
+        lifecycleScope.launch {
+            try {
+                // Save auth state
+                authManager.saveAuthState(email)
 
-            // Initialize repository and ViewModel
-            val preferencesRepository = PreferencesRepository(applicationContext)
-            repository = SheetsRepository(applicationContext, email, preferencesRepository)
-            val repo = repository ?: throw IllegalStateException("Failed to create repository")
-            viewModel = AttendanceViewModel(repo, preferencesRepository)
-            val vm = viewModel ?: throw IllegalStateException("Failed to create ViewModel")
-
-            setContent {
-                AttendanceTrackerTheme {
-                    Surface(
-                        modifier = Modifier.fillMaxSize(),
-                        color = MaterialTheme.colorScheme.background
-                    ) {
-                        Navigation(
-                            viewModel = vm,
-                            preferencesRepository = preferencesRepository,
-                            onSignOut = { signOut() },
-                            authManager = authManager,
-                            biometricHelper = biometricHelper
-                        )
+                // Check if user needs setup (first-run detection)
+                // Uses the class-level preferencesRepository (DataStore requires singleton)
+                if (preferencesRepository.needsSetup(email)) {
+                    if (BuildConfig.DEBUG) {
+                        android.util.Log.d("MainActivity", "New user detected, showing setup screen")
                     }
+                    showSetupScreen(email, preferencesRepository)
+                    return@launch
                 }
-            }
 
-            // Refresh session in background every 30 minutes
-            lifecycleScope.launch {
-                lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                    while (isActive && authManager.isAuthenticated()) {
-                        try {
-                            delay(30 * 60 * 1000L) // 30 minutes
-                            authManager.refreshSession()
-                        } catch (e: Exception) {
-                            android.util.Log.e("MainActivity", "Session refresh failed", e)
-                            break // Exit loop on error
+                // Get the effective spreadsheet ID for this user
+                val spreadsheetId = preferencesRepository.getEffectiveSpreadsheetId(email)
+                if (spreadsheetId.isBlank()) {
+                    // Should not happen if needsSetup works correctly, but handle gracefully
+                    showSetupScreen(email, preferencesRepository)
+                    return@launch
+                }
+
+                if (BuildConfig.DEBUG) {
+                    android.util.Log.d("MainActivity", "Using spreadsheet ID: ${spreadsheetId.take(10)}...")
+                }
+
+                // Initialize repository and ViewModel with the spreadsheet ID
+                repository = SheetsRepository(applicationContext, email, spreadsheetId, preferencesRepository)
+                val repo = repository ?: throw IllegalStateException("Failed to create repository")
+                viewModel = AttendanceViewModel(repo, preferencesRepository)
+                val vm = viewModel ?: throw IllegalStateException("Failed to create ViewModel")
+
+                showMainApp(vm, preferencesRepository)
+
+                // Refresh session in background every 30 minutes
+                lifecycleScope.launch {
+                    lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                        while (isActive && authManager.isAuthenticated()) {
+                            try {
+                                delay(30 * 60 * 1000L) // 30 minutes
+                                authManager.refreshSession()
+                            } catch (e: Exception) {
+                                android.util.Log.e("MainActivity", "Session refresh failed", e)
+                                break // Exit loop on error
+                            }
                         }
                     }
                 }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                Toast.makeText(this@MainActivity, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
+                showSignInScreen()
             }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
-            showSignInScreen()
+        }
+    }
+
+    /**
+     * Shows the main app UI with navigation.
+     */
+    private fun showMainApp(vm: AttendanceViewModel, preferencesRepository: PreferencesRepository) {
+        setContent {
+            AttendanceTrackerTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    Navigation(
+                        viewModel = vm,
+                        preferencesRepository = preferencesRepository,
+                        onSignOut = { signOut() },
+                        authManager = authManager,
+                        biometricHelper = biometricHelper
+                    )
+                }
+            }
+        }
+    }
+
+    /**
+     * Shows the setup screen for new users who need to configure their spreadsheet ID.
+     */
+    private fun showSetupScreen(email: String, preferencesRepository: PreferencesRepository) {
+        setContent {
+            AttendanceTrackerTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    com.attendancetracker.ui.screens.SetupScreen(
+                        onSetupComplete = { spreadsheetId ->
+                            lifecycleScope.launch {
+                                // Save the spreadsheet ID
+                                preferencesRepository.updateSpreadsheetId(spreadsheetId)
+                                // Reinitialize the app with the new spreadsheet ID
+                                initializeApp(email)
+                            }
+                        },
+                        onSignOut = { signOut() }
+                    )
+                }
+            }
         }
     }
 

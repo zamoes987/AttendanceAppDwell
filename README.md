@@ -73,15 +73,13 @@ cd AttendanceAppDwell
    - SHA-1 fingerprint: Get via `./gradlew signingReport`
 5. Add test users (your Google account)
 
-### 3. Configure the App
+### 3. Configure Your Spreadsheet
 
-Edit `app/src/main/java/com/attendancetracker/data/api/GoogleSheetsService.kt`:
+The app now supports multiple groups - each user can configure their own spreadsheet:
 
-```kotlin
-private val SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"  // Replace with your Sheet ID
-```
-
-Find your Sheet ID in the URL: `https://docs.google.com/spreadsheets/d/SHEET_ID_HERE/edit`
+1. **Create your Google Sheet** following the structure below
+2. **Get your Spreadsheet ID** from the URL: `https://docs.google.com/spreadsheets/d/YOUR_SPREADSHEET_ID_HERE/edit`
+3. **First-time users** will be prompted to enter their Spreadsheet ID when they launch the app
 
 ### 4. Build and Run
 
@@ -115,6 +113,46 @@ Create a tab named "2025" (or current year) with this structure:
 - **RN** - Returning New
 - **FT** - First Timer
 - **V** - Visitor
+
+## Setting Up for Your Organization
+
+This app supports multiple organizations. Each user can connect to their own Google Sheet.
+
+### Quick Setup (5 minutes)
+
+1. **Create your Google Sheet**
+   - Open [Google Sheets](https://sheets.google.com) and create a new spreadsheet
+   - Create a tab named with the current year (e.g., "2025")
+   - Set up the column structure as described above
+
+2. **Copy the Spreadsheet ID**
+   - Look at your sheet's URL: `https://docs.google.com/spreadsheets/d/YOUR_ID_HERE/edit`
+   - Copy the long string between `/d/` and `/edit`
+
+3. **Install and Configure**
+   - Install the app on your Android device
+   - Sign in with a Google account that has edit access to your sheet
+   - On first launch, you'll be prompted to enter your Spreadsheet ID
+   - Paste your ID and tap "Continue"
+
+### Template Sheet
+
+For a ready-to-use template, you can:
+1. Create a new Google Sheet
+2. Add a tab named "2025" (or current year)
+3. Set up columns:
+   - **Column A**: Category markers (OM, XT, FT/RN, V) for visual grouping
+   - **Column B**: Member names
+   - **Column C**: Category codes (OM, XT, RN, FT, V)
+   - **Column D onwards**: Date headers will be added automatically
+
+### Changing Your Spreadsheet
+
+To switch to a different spreadsheet:
+1. Open the app and go to **Settings**
+2. Find the **Spreadsheet ID** field
+3. Enter the new spreadsheet ID
+4. The app will reconnect to the new sheet
 
 ## Project Structure
 
@@ -170,10 +208,12 @@ This app is designed to be easily adapted for your organization.
 
 ### Configuration
 
-| File | What to Change |
-|------|----------------|
-| `data/api/GoogleSheetsService.kt` | `SPREADSHEET_ID` and `currentYearTab` |
+| Setting | How to Change |
+|---------|---------------|
+| **Spreadsheet ID** | Enter in app on first launch (Settings > Spreadsheet ID) |
+| **Year Tab** | Automatically uses current year (e.g., "2025") |
 | `ui/screens/HomeScreen.kt` | External submission URL (if needed) |
+| `data/repository/PreferencesRepository.kt` | Change `OWNER_EMAIL` for default sheet owner |
 
 ### Meeting Schedule
 
@@ -184,9 +224,10 @@ Notification times are configured in `data/notifications/NotificationHelper.kt`:
 ## Troubleshooting
 
 ### "Failed to load members"
-- Verify Sheet ID is correct
-- Ensure sheet has a tab matching `currentYearTab` (default: "2025")
+- Verify Sheet ID is correct in Settings
+- Ensure sheet has a tab matching the current year (e.g., "2025")
 - Check member data exists in columns B and C
+- Verify your Google account has access to the spreadsheet
 
 ### Sign-In Issues
 - Verify SHA-1 fingerprint in Google Cloud matches your keystore
@@ -206,9 +247,9 @@ Notification times are configured in `data/notifications/NotificationHelper.kt`:
 ## Known Limitations
 
 - Requires internet connection for most operations (no offline mode)
-- Single spreadsheet support (multi-spreadsheet would require code changes)
-- Year-based sheet tabs require annual tab creation
+- Year-based sheet tabs require annual tab creation (app auto-uses current year)
 - Test users limit in External OAuth mode (publish app for production)
+- Each user can configure one spreadsheet at a time
 
 ## Contributing
 
