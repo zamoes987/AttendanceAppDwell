@@ -310,7 +310,8 @@ fun HomeScreen(
                             // Submit Attendance to Dwell CC button
                             Button(
                                 onClick = {
-                                    val submitUrl = "https://www.dwellcc.org/page/11826?rckipid=EAAAAI8fK!2fXb!2fM90kNNxdXvG1!2bnJSQZY6DszwhSHHN9Op54IBzWCxFtD7!2bAasptQyuNH3cvc1iHs1Mv3Cl7f7P8TrEM!3d&GroupId=188431&Occurrence=2025-11-20T19%3A00%3A00&returnToPage=https://dwellcc.org"
+                                    // TODO: Replace with your organization's attendance submission URL
+                                    val submitUrl = "https://your-organization.org/attendance-submit"
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
                                     context.startActivity(intent)
                                 },

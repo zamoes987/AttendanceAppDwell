@@ -755,7 +755,7 @@ Java and ADB have been added to the User PATH for USB debugging:
 | Tool | Path |
 |------|------|
 | Java | `C:\Program Files\Android\Android Studio\jbr\bin` |
-| ADB | `C:\Users\zanee\AppData\Local\Android\Sdk\platform-tools` |
+| ADB | `%LOCALAPPDATA%\Android\Sdk\platform-tools` |
 | JAVA_HOME | `C:\Program Files\Android\Android Studio\jbr` |
 
 **For Gradle builds in bash/terminal**, set JAVA_HOME first:
