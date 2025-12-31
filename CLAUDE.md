@@ -542,16 +542,17 @@ To verify stability fixes:
 
 ## Recent Feature Additions (November 2025)
 
-### Submit Attendance to Dwell CC Integration
+### Submit Attendance to Organization Portal Integration
 **Location**: HomeScreen - full-width button above member list action bar
-**Purpose**: Direct link to submit final attendance to Dwell CC organization portal
+**Purpose**: Direct link to submit final attendance to organization portal
 
 **Implementation Details**:
 - Full-width button with secondary color styling for prominence
-- Opens Dwell CC submission URL in device browser via Intent
-- URL includes query parameters for tracking and group identification
+- Opens organization submission URL in device browser via Intent
+- URL can include query parameters for tracking and group identification
 - Positioned above Select All/Clear All buttons for easy access
 - **Important**: Button placement in TopAppBar was causing date picker to be obscured - moved to action bar area for better UX
+- **TODO**: Customize the URL in `HomeScreen.kt` for your organization
 
 **File**: `ui/screens/HomeScreen.kt` lines 310-328
 

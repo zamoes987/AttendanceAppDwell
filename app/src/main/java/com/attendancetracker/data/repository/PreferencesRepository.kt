@@ -25,16 +25,18 @@ class PreferencesRepository(private val context: Context) {
 
     companion object {
         /**
-         * Default spreadsheet ID for the app owner (Dwell CC).
+         * Default spreadsheet ID for the app owner.
+         * TODO: CUSTOMIZATION - Replace with your Google Spreadsheet ID.
          * Other users will need to configure their own spreadsheet ID.
          */
-        const val DEFAULT_SPREADSHEET_ID = "1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM"
+        const val DEFAULT_SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
 
         /**
          * Email address of the app owner. Used for first-run detection.
+         * TODO: CUSTOMIZATION - Replace with your Google account email.
          * If the signed-in user matches this email, the default spreadsheet is used automatically.
          */
-        const val OWNER_EMAIL = "zanee40@gmail.com"
+        const val OWNER_EMAIL = "your-email@gmail.com"
 
         val SPREADSHEET_ID_KEY = stringPreferencesKey("spreadsheet_id")
         val MORNING_NOTIFICATION = booleanPreferencesKey("morning_notification")
