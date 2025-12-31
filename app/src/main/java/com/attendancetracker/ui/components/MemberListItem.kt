@@ -1,7 +1,9 @@
 package com.attendancetracker.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -40,16 +42,23 @@ import com.attendancetracker.ui.theme.Present
  * Shows the member's name, category, and a checkbox for marking attendance.
  * The card has a colored start border indicating the member's category.
  *
+ * Tap behavior:
+ * - Tap anywhere on the card: Toggles attendance selection
+ * - Long press on the card: Shows member attendance history (if onLongClick provided)
+ *
  * @param member The member to display
  * @param isSelected Whether this member is marked as present
  * @param onToggle Callback when the attendance checkbox is toggled
+ * @param onLongClick Optional callback when member is long-pressed (for viewing history)
  * @param modifier Optional modifier for customization
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MemberListItem(
     member: Member,
     isSelected: Boolean,
     onToggle: (String) -> Unit,
+    onLongClick: ((Member) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     // Get category-specific color for the border
@@ -66,11 +75,22 @@ fun MemberListItem(
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 2.dp)
             .semantics {
-                contentDescription = "Mark ${member.name} as present"
+                contentDescription = if (onLongClick != null) {
+                    "Mark ${member.name} as present. Long press to view attendance history."
+                } else {
+                    "Mark ${member.name} as present"
+                }
                 stateDescription = if (isSelected) "Selected, present" else "Not selected, absent"
                 role = Role.Checkbox
             }
-            .clickable { onToggle(member.id) },
+            .combinedClickable(
+                onClick = {
+                    onToggle(member.id)
+                },
+                onLongClick = {
+                    onLongClick?.invoke(member)
+                }
+            ),
         elevation = CardDefaults.cardElevation(
             defaultElevation = if (isSelected) 4.dp else 2.dp
         ),

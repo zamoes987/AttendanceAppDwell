@@ -23,7 +23,11 @@ import androidx.compose.material.icons.filled.Save
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -63,8 +67,10 @@ import com.attendancetracker.data.models.Category
 import com.attendancetracker.ui.components.CategoryHeader
 import com.attendancetracker.ui.components.ErrorMessage
 import com.attendancetracker.ui.components.LoadingIndicator
+import com.attendancetracker.ui.components.MemberAttendanceHistoryDialog
 import com.attendancetracker.ui.components.MemberListItem
 import com.attendancetracker.ui.components.SuccessMessage
+import com.attendancetracker.data.models.Member
 import com.attendancetracker.viewmodel.AttendanceViewModel
 import kotlinx.coroutines.delay
 
@@ -111,6 +117,9 @@ fun HomeScreen(
 
     // Search bar visibility state
     var showSearch by remember { mutableStateOf(false) }
+
+    // Member history dialog state
+    var memberToShowHistory by remember { mutableStateOf<Member?>(null) }
 
     // Auto-dismiss success message after 2 seconds
     LaunchedEffect(showSuccess) {
@@ -159,7 +168,7 @@ fun HomeScreen(
                     }
                 },
                 actions = {
-                    // Search button
+                    // Search button (frequently used - keep visible)
                     IconButton(onClick = { showSearch = !showSearch }) {
                         Icon(
                             imageVector = if (showSearch) Icons.Default.Close else Icons.Default.Search,
@@ -168,49 +177,71 @@ fun HomeScreen(
                         )
                     }
 
-                    // Members button
-                    IconButton(onClick = onNavigateToMembers) {
-                        Icon(
-                            imageVector = Icons.Default.People,
-                            contentDescription = "Members",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
-                    // Statistics button
-                    IconButton(onClick = onNavigateToStatistics) {
-                        Icon(
-                            imageVector = Icons.Default.BarChart,
-                            contentDescription = "Statistics",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
-                    // History button
-                    IconButton(onClick = onNavigateToHistory) {
-                        Icon(
-                            imageVector = Icons.Default.History,
-                            contentDescription = "View History",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
-                    // Settings button
-                    IconButton(onClick = onNavigateToSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                            tint = MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-
-                    // Refresh button
+                    // Refresh button (frequently used - keep visible)
                     IconButton(onClick = { viewModel.refreshData() }) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
                             contentDescription = "Refresh",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
+                    }
+
+                    // Overflow menu for navigation items
+                    var showMenu by remember { mutableStateOf(false) }
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = "More options",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Members") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToMembers()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.People, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Statistics") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToStatistics()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.BarChart, contentDescription = null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("History") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToHistory()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.History, contentDescription = null)
+                                }
+                            )
+                            Divider()
+                            DropdownMenuItem(
+                                text = { Text("Settings") },
+                                onClick = {
+                                    showMenu = false
+                                    onNavigateToSettings()
+                                },
+                                leadingIcon = {
+                                    Icon(Icons.Default.Settings, contentDescription = null)
+                                }
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -358,11 +389,11 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp)
                         ) {
-                            // Submit Attendance button - opens external submission portal
+                            // Submit Attendance to Organization Portal button
                             // TODO: CUSTOMIZATION - Replace with your organization's attendance submission URL
                             Button(
                                 onClick = {
-                                    val submitUrl = "https://your-organization.org/attendance-submit"
+                                    val submitUrl = "https://your-organization.org/attendance-submission"
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
                                     context.startActivity(intent)
                                 },
@@ -470,7 +501,8 @@ fun HomeScreen(
                                         onToggle = {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             viewModel.toggleMemberSelection(it)
-                                        }
+                                        },
+                                        onLongClick = { memberToShowHistory = it }
                                     )
                                 }
                             }
@@ -528,5 +560,13 @@ fun HomeScreen(
                 }
             )
         }
+    }
+
+    // Member Attendance History Dialog
+    memberToShowHistory?.let { member ->
+        MemberAttendanceHistoryDialog(
+            member = member,
+            onDismiss = { memberToShowHistory = null }
+        )
     }
 }

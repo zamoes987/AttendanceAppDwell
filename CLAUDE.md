@@ -599,6 +599,80 @@ To verify stability fixes:
 
 This change resolved date picker visibility issues caused by overcrowded TopAppBar.
 
+## UX Improvements (December 2025)
+
+Major usability enhancements added to improve the user experience.
+
+### Tutorial System
+**Purpose**: First-run onboarding to help new users understand the app.
+
+**Implementation**:
+- 6-page swipeable tutorial using `HorizontalPager`
+- Shows automatically on first app launch
+- Also accessible from Settings → Tutorial → "View Tutorial" button
+- Tutorial completion tracked in DataStore via `TUTORIAL_COMPLETED_KEY`
+
+**Pages**:
+1. Welcome - App introduction
+2. Mark Attendance - Tap to toggle, long press for history
+3. Date Selection - Date picker usage
+4. Members & Stats - Navigation overview
+5. Statistics - Trends and insights
+6. Get Started - Final page
+
+**Files**:
+- `ui/components/TutorialDialog.kt` - Pager-based tutorial component
+- `PreferencesRepository.kt` - `tutorialCompletedFlow`, `hasTutorialBeenCompleted()`, `setTutorialCompleted()`
+- `MainActivity.kt` - First-run check in `initializeApp()`
+- `SettingsScreen.kt` - "View Tutorial" button
+
+### Member Attendance History Dialog
+**Purpose**: View a member's full attendance history with stats.
+
+**Interaction Pattern**:
+- **Tap** member → Toggle attendance (mark present/absent)
+- **Long press** member → View attendance history dialog
+
+**Dialog Content**:
+- Member name and category (color-coded)
+- Stats card: "X of Y meetings (Z%)" with color-coded percentage
+- Scrollable list of dates attended (newest first, formatted as "Friday, January 10, 2025")
+
+**Files**:
+- `ui/components/MemberAttendanceHistoryDialog.kt` - Dialog component
+- `ui/components/MemberListItem.kt` - Updated with `onLongClick` parameter
+- `ui/screens/HomeScreen.kt` - Dialog integration
+- `ui/screens/MembersScreen.kt` - Dialog integration (also supports long-press on MemberCard)
+
+### Eye Button Explanation (Filter Info)
+**Purpose**: Explain the hide infrequent members feature to users.
+
+**Implementation**:
+- Info icon (ℹ️) added next to eye icon in MembersScreen TopAppBar
+- Tapping info icon shows explanation dialog
+- Dialog explains: what eye icon does, 40% threshold, how to toggle
+
+**File**: `ui/screens/MembersScreen.kt` - `showFilterExplanation` state and AlertDialog
+
+### TopAppBar Overflow Menu
+**Purpose**: Reduce clutter by consolidating navigation icons into a menu.
+
+**Before**: 6 icons (Search, Members, Statistics, History, Settings, Refresh)
+**After**: 3 icons (Search, Refresh, ⋮ More)
+
+**Overflow Menu Items**:
+- Members (with People icon)
+- Statistics (with BarChart icon)
+- History (with History icon)
+- Divider
+- Settings (with Settings icon)
+
+**File**: `ui/screens/HomeScreen.kt` - `DropdownMenu` with `DropdownMenuItem` components
+
+### Settings Screen Cleanup
+- Removed Google Sheet ID settings section (not needed for end users)
+- Settings now shows: Notifications, Biometric, Tutorial, Debug Logs, About, Account
+
 ## Notifications Feature (November 2025)
 
 Attendance reminder notifications were added to help leaders remember to track attendance for Thursday meetings.

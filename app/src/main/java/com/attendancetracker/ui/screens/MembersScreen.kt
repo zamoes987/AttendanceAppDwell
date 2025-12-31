@@ -1,6 +1,8 @@
 package com.attendancetracker.ui.screens
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -46,6 +49,7 @@ import com.attendancetracker.data.models.Category
 import com.attendancetracker.data.models.Member
 import com.attendancetracker.ui.components.AddEditMemberDialog
 import com.attendancetracker.ui.components.CategoryHeader
+import com.attendancetracker.ui.components.MemberAttendanceHistoryDialog
 import com.attendancetracker.ui.theme.CategoryFT
 import com.attendancetracker.ui.theme.CategoryOM
 import com.attendancetracker.ui.theme.CategoryRN
@@ -77,6 +81,8 @@ fun MembersScreen(
     var showAddDialog by remember { mutableStateOf(false) }
     var memberToEdit by remember { mutableStateOf<Member?>(null) }
     var memberToDelete by remember { mutableStateOf<Member?>(null) }
+    var showFilterExplanation by remember { mutableStateOf(false) }
+    var memberToShowHistory by remember { mutableStateOf<Member?>(null) }
 
     // Auto-dismiss operation message after 2 seconds
     androidx.compose.runtime.LaunchedEffect(memberOperationMessage) {
@@ -101,6 +107,14 @@ fun MembersScreen(
                     }
                 },
                 actions = {
+                    // Info button to explain the filter
+                    IconButton(onClick = { showFilterExplanation = true }) {
+                        Icon(
+                            imageVector = Icons.Filled.Info,
+                            contentDescription = "Filter info",
+                            tint = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                        )
+                    }
                     // Toggle to hide/show infrequent members (<40% attendance)
                     IconButton(onClick = { viewModel.toggleHideInfrequentMembers() }) {
                         Icon(
@@ -161,7 +175,8 @@ fun MembersScreen(
                     ) { member ->
                         MemberCard(
                             member = member,
-                            onClick = { memberToEdit = member }
+                            onClick = { memberToShowHistory = member },
+                            onLongClick = { memberToEdit = member }
                         )
                     }
                 }
@@ -243,6 +258,53 @@ fun MembersScreen(
                 }
             )
         }
+
+        // Filter Explanation Dialog
+        if (showFilterExplanation) {
+            AlertDialog(
+                onDismissRequest = { showFilterExplanation = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Filled.Visibility,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                title = { Text("Hide Infrequent Members") },
+                text = {
+                    Column {
+                        Text(
+                            "The eye icon filters the member list based on attendance rate.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.size(12.dp))
+                        Text(
+                            "When enabled (crossed eye), members with less than 40% attendance are hidden. This helps you focus on regular attendees.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.size(12.dp))
+                        Text(
+                            "Tap the eye icon anytime to toggle this filter on or off.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                },
+                confirmButton = {
+                    Button(onClick = { showFilterExplanation = false }) {
+                        Text("Got it")
+                    }
+                }
+            )
+        }
+
+        // Member Attendance History Dialog
+        memberToShowHistory?.let { member ->
+            MemberAttendanceHistoryDialog(
+                member = member,
+                onDismiss = { memberToShowHistory = null }
+            )
+        }
     }
 }
 
@@ -250,12 +312,15 @@ fun MembersScreen(
  * Card displaying a single member's information.
  *
  * @param member The member to display
- * @param onClick Callback when the card is clicked
+ * @param onClick Callback when the card is tapped (shows history)
+ * @param onLongClick Callback when the card is long-pressed (edit member)
  */
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun MemberCard(
     member: Member,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    onLongClick: () -> Unit = {}
 ) {
     val categoryColor = when (member.category) {
         Category.ORIGINAL_MEMBER -> CategoryOM
@@ -280,7 +345,10 @@ fun MemberCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp)
-            .clickable(onClick = onClick),
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            ),
         colors = CardDefaults.cardColors(
             containerColor = categoryColor.copy(alpha = 0.1f)
         )

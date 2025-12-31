@@ -25,18 +25,16 @@ class PreferencesRepository(private val context: Context) {
 
     companion object {
         /**
-         * Default spreadsheet ID for the app owner.
+         * Default spreadsheet ID for the app owner (Dwell CC).
          * Other users will need to configure their own spreadsheet ID.
-         * TODO: Replace with your Google Sheets spreadsheet ID
          */
-        const val DEFAULT_SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
+        const val DEFAULT_SPREADSHEET_ID = "1HD2ybg4ko2L9DpILk5Gi12iSH_IDRccT6TR4Job6oDM"
 
         /**
          * Email address of the app owner. Used for first-run detection.
          * If the signed-in user matches this email, the default spreadsheet is used automatically.
-         * TODO: Replace with your email address
          */
-        const val OWNER_EMAIL = "your-email@example.com"
+        const val OWNER_EMAIL = "zanee40@gmail.com"
 
         val SPREADSHEET_ID_KEY = stringPreferencesKey("spreadsheet_id")
         val MORNING_NOTIFICATION = booleanPreferencesKey("morning_notification")
@@ -44,6 +42,7 @@ class PreferencesRepository(private val context: Context) {
         private val STATISTICS_SORT_KEY = stringPreferencesKey("statistics_sort")
         private val SKIPPED_DATES_KEY = stringSetPreferencesKey("skipped_dates")
         private val HIDE_INFREQUENT_KEY = booleanPreferencesKey("hide_infrequent_members")
+        private val TUTORIAL_COMPLETED_KEY = booleanPreferencesKey("tutorial_completed")
     }
 
     /**
@@ -222,6 +221,37 @@ class PreferencesRepository(private val context: Context) {
     suspend fun clearSkippedDates() {
         context.dataStore.edit { preferences ->
             preferences.remove(SKIPPED_DATES_KEY)
+        }
+    }
+
+    // ============ Tutorial Preferences ============
+
+    /**
+     * Flow of tutorial completion status.
+     * Emits true if the user has completed the tutorial.
+     */
+    val tutorialCompletedFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[TUTORIAL_COMPLETED_KEY] ?: false
+        }
+
+    /**
+     * Checks if the tutorial has been completed.
+     *
+     * @return true if tutorial was completed, false otherwise
+     */
+    suspend fun hasTutorialBeenCompleted(): Boolean {
+        return context.dataStore.data.first()[TUTORIAL_COMPLETED_KEY] ?: false
+    }
+
+    /**
+     * Marks the tutorial as completed or not completed.
+     *
+     * @param completed Whether the tutorial has been completed
+     */
+    suspend fun setTutorialCompleted(completed: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[TUTORIAL_COMPLETED_KEY] = completed
         }
     }
 }

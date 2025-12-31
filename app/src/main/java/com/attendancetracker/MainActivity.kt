@@ -19,7 +19,12 @@ import com.attendancetracker.data.notifications.NotificationHelper
 import com.attendancetracker.data.repository.PreferencesRepository
 import com.attendancetracker.data.repository.SheetsRepository
 import com.attendancetracker.ui.Navigation
+import com.attendancetracker.ui.components.TutorialDialog
 import com.attendancetracker.ui.screens.SignInScreen
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.attendancetracker.ui.theme.AttendanceTrackerTheme
 import com.attendancetracker.viewmodel.AttendanceViewModel
 import com.google.android.gms.auth.api.signin.GoogleSignIn
@@ -330,7 +335,9 @@ class MainActivity : FragmentActivity() {
                 viewModel = AttendanceViewModel(repo, preferencesRepository)
                 val vm = viewModel ?: throw IllegalStateException("Failed to create ViewModel")
 
-                showMainApp(vm, preferencesRepository)
+                // Check if tutorial needs to be shown
+                val tutorialCompleted = preferencesRepository.hasTutorialBeenCompleted()
+                showMainApp(vm, preferencesRepository, showTutorial = !tutorialCompleted)
 
                 // Refresh session in background every 30 minutes
                 lifecycleScope.launch {
@@ -356,10 +363,21 @@ class MainActivity : FragmentActivity() {
 
     /**
      * Shows the main app UI with navigation.
+     *
+     * @param vm The AttendanceViewModel
+     * @param preferencesRepository The preferences repository
+     * @param showTutorial Whether to show the tutorial on first launch
      */
-    private fun showMainApp(vm: AttendanceViewModel, preferencesRepository: PreferencesRepository) {
+    private fun showMainApp(
+        vm: AttendanceViewModel,
+        preferencesRepository: PreferencesRepository,
+        showTutorial: Boolean = false
+    ) {
         setContent {
             AttendanceTrackerTheme {
+                // Tutorial dialog state
+                var showTutorialDialog by remember { mutableStateOf(showTutorial) }
+
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
@@ -371,6 +389,19 @@ class MainActivity : FragmentActivity() {
                         authManager = authManager,
                         biometricHelper = biometricHelper
                     )
+
+                    // Show tutorial dialog if needed
+                    if (showTutorialDialog) {
+                        TutorialDialog(
+                            onDismiss = {
+                                showTutorialDialog = false
+                                // Mark tutorial as completed
+                                lifecycleScope.launch {
+                                    preferencesRepository.setTutorialCompleted(true)
+                                }
+                            }
+                        )
+                    }
                 }
             }
         }

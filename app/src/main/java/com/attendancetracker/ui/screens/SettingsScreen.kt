@@ -20,7 +20,9 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.Help
 import androidx.compose.material3.Button
+import com.attendancetracker.ui.components.TutorialDialog
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -29,7 +31,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -79,6 +80,9 @@ fun SettingsScreen(
 ) {
     val settings by viewModel.settings.collectAsState()
     val context = LocalContext.current
+
+    // Tutorial dialog state
+    var showTutorialDialog by remember { mutableStateOf(false) }
 
     // Biometric state
     var biometricEnabled by remember { mutableStateOf(authManager?.isBiometricEnabled() ?: false) }
@@ -157,44 +161,6 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            // Google Sheet Settings
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surface
-                )
-            ) {
-                Column(
-                    modifier = Modifier.padding(16.dp)
-                ) {
-                    Text(
-                        text = "Google Sheet",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
-                    )
-
-                    Spacer(modifier = Modifier.size(16.dp))
-
-                    OutlinedTextField(
-                        value = settings.spreadsheetId,
-                        onValueChange = { viewModel.updateSpreadsheetId(it) },
-                        label = { Text("Spreadsheet ID") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    Spacer(modifier = Modifier.size(8.dp))
-
-                    Text(
-                        text = "Find this in your Google Sheet URL",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.size(16.dp))
-
             // Notification Settings
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -430,6 +396,48 @@ fun SettingsScreen(
                 Spacer(modifier = Modifier.size(16.dp))
             }
 
+            // Tutorial Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Tutorial",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.size(8.dp))
+
+                    Text(
+                        text = "Review the app tutorial to learn about features and how to use the app",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.size(16.dp))
+
+                    Button(
+                        onClick = { showTutorialDialog = true },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Help,
+                            contentDescription = null
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("View Tutorial")
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.size(16.dp))
+
             // Debug Logs Section
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -556,5 +564,12 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    // Tutorial Dialog
+    if (showTutorialDialog) {
+        TutorialDialog(
+            onDismiss = { showTutorialDialog = false }
+        )
     }
 }
