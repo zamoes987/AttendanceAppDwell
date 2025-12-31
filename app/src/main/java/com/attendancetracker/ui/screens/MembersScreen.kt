@@ -76,6 +76,7 @@ fun MembersScreen(
     val members by viewModel.members.collectAsState()
     val memberOperationMessage by viewModel.memberOperationMessage.collectAsState()
     val hideInfrequentMembers by viewModel.hideInfrequentMembers.collectAsState()
+    val attendanceRecords by viewModel.attendanceRecords.collectAsState()
 
     // Dialog states
     var showAddDialog by remember { mutableStateOf(false) }
@@ -302,6 +303,7 @@ fun MembersScreen(
         memberToShowHistory?.let { member ->
             MemberAttendanceHistoryDialog(
                 member = member,
+                totalMeetings = attendanceRecords.size,
                 onDismiss = { memberToShowHistory = null }
             )
         }

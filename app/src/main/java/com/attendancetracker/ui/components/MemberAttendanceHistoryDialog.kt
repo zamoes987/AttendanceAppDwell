@@ -43,11 +43,13 @@ import java.time.format.DateTimeFormatter
  * and a list of all dates they attended (most recent first).
  *
  * @param member The member whose history to display
+ * @param totalMeetings Total number of meetings tracked (for accurate percentage calculation)
  * @param onDismiss Callback when the dialog is dismissed
  */
 @Composable
 fun MemberAttendanceHistoryDialog(
     member: Member,
+    totalMeetings: Int,
     onDismiss: () -> Unit
 ) {
     // Get category color for theming
@@ -71,10 +73,13 @@ fun MemberAttendanceHistoryDialog(
         .sortedByDescending { it.second }
         .map { it.first }
 
-    // Calculate stats
-    val totalMeetings = member.attendanceHistory.size
+    // Calculate stats using the passed totalMeetings for consistency with Statistics page
     val attendedCount = member.getTotalAttendance()
-    val attendancePercentage = member.getAttendancePercentage()
+    val attendancePercentage = if (totalMeetings > 0) {
+        (attendedCount.toDouble() / totalMeetings) * 100.0
+    } else {
+        0.0
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,

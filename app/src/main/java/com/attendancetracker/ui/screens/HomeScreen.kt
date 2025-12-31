@@ -111,6 +111,7 @@ fun HomeScreen(
     val currentDate by viewModel.currentDate.collectAsState()
     val isCurrentDateSkipped = viewModel.isDateSkipped(currentDate)
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val attendanceRecords by viewModel.attendanceRecords.collectAsState()
 
     // Date picker dialog state
     var showDatePicker by remember { mutableStateOf(false) }
@@ -566,6 +567,7 @@ fun HomeScreen(
     memberToShowHistory?.let { member ->
         MemberAttendanceHistoryDialog(
             member = member,
+            totalMeetings = attendanceRecords.size,
             onDismiss = { memberToShowHistory = null }
         )
     }

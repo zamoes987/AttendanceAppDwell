@@ -638,11 +638,18 @@ Major usability enhancements added to improve the user experience.
 - Stats card: "X of Y meetings (Z%)" with color-coded percentage
 - Scrollable list of dates attended (newest first, formatted as "Friday, January 10, 2025")
 
+**Data Consistency Fix (December 30, 2025)**:
+The dialog now receives `totalMeetings` from `attendanceRecords.size` to match Statistics page calculations.
+- Previously used `member.attendanceHistory.size` which included ALL dates
+- Statistics page uses filtered `attendanceRecords` (excludes skipped dates)
+- This caused percentage mismatches between dialog and Statistics page
+- Fix: Pass `attendanceRecords.size` from ViewModel to dialog for consistent calculations
+
 **Files**:
-- `ui/components/MemberAttendanceHistoryDialog.kt` - Dialog component
+- `ui/components/MemberAttendanceHistoryDialog.kt` - Dialog component (accepts `totalMeetings: Int` parameter)
 - `ui/components/MemberListItem.kt` - Updated with `onLongClick` parameter
-- `ui/screens/HomeScreen.kt` - Dialog integration
-- `ui/screens/MembersScreen.kt` - Dialog integration (also supports long-press on MemberCard)
+- `ui/screens/HomeScreen.kt` - Dialog integration, passes `attendanceRecords.size`
+- `ui/screens/MembersScreen.kt` - Dialog integration, passes `attendanceRecords.size`
 
 ### Eye Button Explanation (Filter Info)
 **Purpose**: Explain the hide infrequent members feature to users.
