@@ -17,6 +17,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Button
@@ -49,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import com.attendancetracker.data.auth.AuthManager
 import com.attendancetracker.data.auth.BiometricHelper
+import com.attendancetracker.data.logging.LogExporter
 import com.attendancetracker.viewmodel.SettingsViewModel
 
 /**
@@ -427,6 +429,60 @@ fun SettingsScreen(
 
                 Spacer(modifier = Modifier.size(16.dp))
             }
+
+            // Debug Logs Section
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "Debug Logs",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+
+                    Spacer(modifier = Modifier.size(8.dp))
+
+                    Text(
+                        text = "Export logs for troubleshooting. Log size: ${LogExporter.getLogFileSize(context)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.size(16.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        OutlinedButton(
+                            onClick = { LogExporter.shareLogFile(context) },
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BugReport,
+                                contentDescription = "Export"
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Export Logs")
+                        }
+
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        OutlinedButton(
+                            onClick = { LogExporter.clearLogs(context) }
+                        ) {
+                            Text("Clear")
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.size(16.dp))
 
             // About Section
             Card(

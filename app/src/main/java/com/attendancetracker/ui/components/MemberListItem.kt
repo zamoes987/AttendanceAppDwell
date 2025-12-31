@@ -1,6 +1,7 @@
 package com.attendancetracker.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -16,6 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.attendancetracker.data.models.Category
@@ -58,12 +64,24 @@ fun MemberListItem(
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
+            .padding(horizontal = 16.dp, vertical = 2.dp)
+            .semantics {
+                contentDescription = "Mark ${member.name} as present"
+                stateDescription = if (isSelected) "Selected, present" else "Not selected, absent"
+                role = Role.Checkbox
+            }
+            .clickable { onToggle(member.id) },
         elevation = CardDefaults.cardElevation(
-            defaultElevation = 2.dp
+            defaultElevation = if (isSelected) 4.dp else 2.dp
+        ),
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected)
+                categoryColor.copy(alpha = 0.15f)
+            else
+                MaterialTheme.colorScheme.surface
         ),
         border = BorderStroke(
-            width = 4.dp,
+            width = if (isSelected) 2.dp else 4.dp,
             color = categoryColor
         ),
         shape = MaterialTheme.shapes.medium
@@ -71,7 +89,7 @@ fun MemberListItem(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -97,10 +115,10 @@ fun MemberListItem(
 
             Spacer(modifier = Modifier.weight(0.1f))
 
-            // Attendance checkbox
+            // Attendance checkbox (visual only - card handles tap)
             Checkbox(
                 checked = isSelected,
-                onCheckedChange = { onToggle(member.id) },
+                onCheckedChange = null,
                 colors = CheckboxDefaults.colors(
                     checkedColor = Present,
                     uncheckedColor = MaterialTheme.colorScheme.onSurfaceVariant

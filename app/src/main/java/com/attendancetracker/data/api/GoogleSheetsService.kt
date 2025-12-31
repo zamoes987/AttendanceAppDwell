@@ -52,10 +52,23 @@ class GoogleSheetsService(
 
     /**
      * The name of the tab/sheet to use for the current year.
-     * Hardcoded to avoid runtime issues if year tab doesn't exist.
-     * Update this value when creating a new year's tab in the spreadsheet.
+     * Initialized to current system year, but updated by initializeYearTab()
+     * to use the best available tab (with fallback to previous year).
      */
-    private val currentYearTab: String = "2025"
+    private var _yearTab: String = java.time.Year.now().toString()
+
+    /**
+     * Public accessor for the current year tab.
+     */
+    val currentYearTab: String get() = _yearTab
+
+    /**
+     * Sets the year tab to use manually.
+     * Useful for settings override or testing.
+     */
+    fun setYearTab(yearTab: String) {
+        _yearTab = yearTab
+    }
 
     /**
      * Google account credential initialized with Sheets API scope.
@@ -597,6 +610,64 @@ class GoogleSheetsService(
      * @return The current year as a string (e.g., "2025")
      */
     fun getYearTab(): String = currentYearTab
+
+    /**
+     * Detects the best year tab to use based on available tabs in the spreadsheet.
+     *
+     * Priority order:
+     * 1. Current calendar year if tab exists
+     * 2. Previous year if current year tab doesn't exist
+     * 3. Most recent year tab found
+     * 4. Current calendar year as fallback (may error later if tab truly missing)
+     *
+     * @return The best year tab name to use
+     */
+    suspend fun detectBestYearTab(): String = withContext(Dispatchers.IO) {
+        val availableTabsResult = getAvailableTabs()
+        val tabs = availableTabsResult.getOrNull()
+
+        if (tabs == null) {
+            if (BuildConfig.DEBUG) {
+                Log.w("GoogleSheetsService", "Failed to get available tabs, defaulting to current year")
+            }
+            return@withContext java.time.Year.now().toString()
+        }
+
+        val currentYear = java.time.Year.now().value
+
+        // Filter to only year tabs (4 digit numbers) and sort
+        val yearTabs = tabs.filter { it.matches(Regex("\\d{4}")) }
+            .mapNotNull { it.toIntOrNull() }
+            .sorted()
+
+        val bestTab = when {
+            yearTabs.contains(currentYear) -> currentYear.toString()
+            yearTabs.contains(currentYear - 1) -> (currentYear - 1).toString()
+            yearTabs.isNotEmpty() -> yearTabs.last().toString()
+            else -> currentYear.toString()
+        }
+
+        if (BuildConfig.DEBUG) {
+            Log.d("GoogleSheetsService", "Available year tabs: $yearTabs, selected: $bestTab")
+        }
+
+        bestTab
+    }
+
+    /**
+     * Initializes the year tab by auto-detecting the best available tab.
+     *
+     * Should be called after construction, before other operations.
+     * This prevents the app from failing if the current year tab doesn't exist yet.
+     *
+     * Example: On Jan 1, 2026, if only "2025" tab exists, this will use "2025".
+     */
+    suspend fun initializeYearTab() {
+        _yearTab = detectBestYearTab()
+        if (BuildConfig.DEBUG) {
+            Log.d("GoogleSheetsService", "Year tab initialized to: $_yearTab")
+        }
+    }
 
     /**
      * Adds a new member to the Google Sheet.

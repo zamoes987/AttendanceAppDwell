@@ -20,7 +20,9 @@ import androidx.compose.material.icons.filled.OpenInBrowser
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -30,6 +32,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -101,9 +104,13 @@ fun HomeScreen(
     val selectedMembers by viewModel.selectedMembers.collectAsState()
     val currentDate by viewModel.currentDate.collectAsState()
     val isCurrentDateSkipped = viewModel.isDateSkipped(currentDate)
+    val searchQuery by viewModel.searchQuery.collectAsState()
 
     // Date picker dialog state
     var showDatePicker by remember { mutableStateOf(false) }
+
+    // Search bar visibility state
+    var showSearch by remember { mutableStateOf(false) }
 
     // Auto-dismiss success message after 2 seconds
     LaunchedEffect(showSuccess) {
@@ -152,6 +159,15 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    // Search button
+                    IconButton(onClick = { showSearch = !showSearch }) {
+                        Icon(
+                            imageVector = if (showSearch) Icons.Default.Close else Icons.Default.Search,
+                            contentDescription = if (showSearch) "Close Search" else "Search Members",
+                            tint = MaterialTheme.colorScheme.onPrimary
+                        )
+                    }
+
                     // Members button
                     IconButton(onClick = onNavigateToMembers) {
                         Icon(
@@ -267,6 +283,41 @@ fun HomeScreen(
                         )
                     }
 
+                    // Search bar (collapsible)
+                    if (showSearch) {
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.surface,
+                            shadowElevation = 2.dp
+                        ) {
+                            OutlinedTextField(
+                                value = searchQuery,
+                                onValueChange = { viewModel.setSearchQuery(it) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                                placeholder = { Text("Search members...") },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Search,
+                                        contentDescription = "Search"
+                                    )
+                                },
+                                trailingIcon = {
+                                    if (searchQuery.isNotEmpty()) {
+                                        IconButton(onClick = { viewModel.clearSearch() }) {
+                                            Icon(
+                                                imageVector = Icons.Default.Close,
+                                                contentDescription = "Clear search"
+                                            )
+                                        }
+                                    }
+                                },
+                                singleLine = true
+                            )
+                        }
+                    }
+
                     // Show skipped date indicator
                     if (isCurrentDateSkipped) {
                         Surface(
@@ -307,10 +358,10 @@ fun HomeScreen(
                                 .fillMaxWidth()
                                 .padding(16.dp)
                         ) {
-                            // Submit Attendance to Dwell CC button
+                            // Submit Attendance button - opens external submission portal
+                            // TODO: CUSTOMIZATION - Replace with your organization's attendance submission URL
                             Button(
                                 onClick = {
-                                    // TODO: Replace with your organization's attendance submission URL (see local-config.md)
                                     val submitUrl = "https://your-organization.org/attendance-submit"
                                     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(submitUrl))
                                     context.startActivity(intent)

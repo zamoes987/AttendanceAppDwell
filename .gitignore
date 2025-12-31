@@ -184,3 +184,7 @@ CLAUDE_CODE_SCRIPT.md
 
 # Local config with sensitive values (NEVER commit)
 local-config.md
+
+# Firebase configuration (contains project-specific keys)
+app/google-services.json
+google-services.json

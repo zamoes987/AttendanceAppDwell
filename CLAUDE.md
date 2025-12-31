@@ -739,6 +739,151 @@ Notifications require TWO permissions on Android 12+ (API 31+):
 - Check BootReceiver registered correctly
 - Confirm preferences saved to DataStore before reboot
 
+## Logging & Crash Reporting (December 2025)
+
+The app uses Firebase Crashlytics for cloud crash reporting and Timber for structured logging. All crashes are automatically uploaded to the Firebase Console, and local logs can be exported from Settings for debugging with Claude.
+
+### Architecture
+
+**Cloud Crash Reporting: Firebase Crashlytics**
+- **Dashboard**: https://console.firebase.google.com → Select project → Crashlytics
+- **Project ID**: `attendance-tracker-47f92`
+- **Features**: Automatic crash detection, stack traces, custom keys, real-time alerts
+- **Cost**: Free and unlimited
+
+**Local Logging: Timber + File Export**
+- Structured logging with automatic tag generation
+- Debug and release build configurations
+- Local file storage with 1MB rolling limit
+- Export via Android share sheet from Settings
+
+### Components
+
+**Application Class** (`AttendanceTrackerApp.kt`):
+- Initializes Timber on app startup
+- Debug builds: `DebugTree` + `FileLoggingTree`
+- Release builds: `CrashlyticsTree` + `FileLoggingTree`
+
+**Logging Trees** (`data/logging/`):
+| File | Purpose |
+|------|---------|
+| `CrashlyticsTree.kt` | Sends WARN/ERROR logs to Firebase |
+| `FileLoggingTree.kt` | Writes all logs to local file with timestamps |
+| `LogExporter.kt` | Utility for sharing/clearing log files |
+
+**Log File Details**:
+- Location: `filesDir/app_logs.txt`
+- Format: `2025-01-15 14:30:45.123 D/MainActivity: message`
+- Max size: 1MB (auto-trimmed)
+- Access: Settings → Debug Logs → Export
+
+### Firebase Configuration
+
+**Required Files**:
+- `app/google-services.json` - Firebase configuration (not in git)
+- Project-level `build.gradle.kts` - Firebase plugins
+- App-level `build.gradle.kts` - Firebase dependencies
+
+**Crashlytics Custom Keys** (set in MainActivity.kt):
+```kotlin
+Firebase.crashlytics.setUserId(email.hashCode().toString())  // Anonymized
+Firebase.crashlytics.setCustomKey("app_version", BuildConfig.VERSION_NAME)
+Firebase.crashlytics.setCustomKey("app_version_code", BuildConfig.VERSION_CODE)
+Firebase.crashlytics.setCustomKey("spreadsheet_configured", true)
+```
+
+### Usage Patterns
+
+**Logging (replaces android.util.Log)**:
+```kotlin
+import timber.log.Timber
+
+Timber.d("Debug message")           // D/ClassName: Debug message
+Timber.i("Info message")            // I/ClassName: Info message
+Timber.w("Warning message")         // W/ClassName: Warning message (→ Crashlytics)
+Timber.e(exception, "Error msg")    // E/ClassName: Error msg (→ Crashlytics)
+```
+
+**Non-Fatal Error Reporting**:
+```kotlin
+Firebase.crashlytics.recordException(exception)  // Manual non-fatal
+Firebase.crashlytics.log("Breadcrumb message")   // Adds context to crash reports
+```
+
+### Viewing Logs
+
+**Firebase Console (Crashes)**:
+1. Go to https://console.firebase.google.com
+2. Select "Attendance Tracker" project
+3. Click "Crashlytics" in sidebar
+4. View crash reports with stack traces and custom keys
+
+**Local Logs (For Claude Debugging)**:
+1. Open app → Settings
+2. Scroll to "Debug Logs" section
+3. Tap "Export Logs" to share via email/message/etc.
+4. Copy relevant sections to Claude for debugging
+
+### Dependencies Added
+
+**Project-level build.gradle.kts**:
+```kotlin
+plugins {
+    id("com.google.gms.google-services") version "4.4.0" apply false
+    id("com.google.firebase.crashlytics") version "2.9.9" apply false
+}
+```
+
+**App-level build.gradle.kts**:
+```kotlin
+plugins {
+    id("com.google.gms.google-services")
+    id("com.google.firebase.crashlytics")
+}
+
+dependencies {
+    implementation(platform("com.google.firebase:firebase-bom:32.7.0"))
+    implementation("com.google.firebase:firebase-crashlytics-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.jakewharton.timber:timber:5.0.1")
+}
+```
+
+### Files Modified/Created
+
+| File | Status | Purpose |
+|------|--------|---------|
+| `AttendanceTrackerApp.kt` | New | Application class with Timber init |
+| `data/logging/CrashlyticsTree.kt` | New | Sends errors to Firebase |
+| `data/logging/FileLoggingTree.kt` | New | Writes to local file |
+| `data/logging/LogExporter.kt` | New | Export/share utilities |
+| `res/xml/file_paths.xml` | New | FileProvider config |
+| `AndroidManifest.xml` | Modified | App class + FileProvider |
+| `MainActivity.kt` | Modified | Timber usage + Crashlytics context |
+| `SettingsScreen.kt` | Modified | Debug Logs section |
+| `build.gradle.kts` (both) | Modified | Firebase plugins/dependencies |
+| `google-services.json` | New | Firebase config (not in git) |
+
+### Testing Crash Reporting
+
+1. **Test Crash**: Add `throw RuntimeException("Test crash")` and run app
+2. **Verify in Console**: Check Firebase Console → Crashlytics for crash report
+3. **Test Non-Fatal**: Call `Firebase.crashlytics.recordException(Exception("test"))`
+4. **Test Log Export**: Settings → Export Logs → verify file shares correctly
+
+### Troubleshooting
+
+**Crashes not appearing in Firebase Console**:
+- First crash may take up to 5 minutes to appear
+- Ensure `google-services.json` is in `app/` folder
+- Check that Firebase project has Crashlytics enabled
+- Verify app was restarted after crash (reports upload on next launch)
+
+**Log export not working**:
+- Check FileProvider is registered in AndroidManifest
+- Verify `file_paths.xml` exists in `res/xml/`
+- Check log file exists: `filesDir/app_logs.txt`
+
 ## Testing Notes
 
 No comprehensive test suite currently implemented. When adding tests:

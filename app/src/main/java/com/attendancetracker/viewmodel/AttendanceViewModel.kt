@@ -15,11 +15,13 @@ import com.attendancetracker.data.repository.PreferencesRepository
 import com.attendancetracker.data.repository.SheetsRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -112,6 +114,19 @@ class AttendanceViewModel(
     private val _hideInfrequentMembers = MutableStateFlow(false)
     val hideInfrequentMembers: StateFlow<Boolean> = _hideInfrequentMembers.asStateFlow()
 
+    // Search/filter state for quick member lookup
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    /**
+     * Debounced search query to prevent excessive filtering on rapid typing.
+     * Waits 300ms after last keystroke before emitting the query.
+     */
+    @OptIn(FlowPreview::class)
+    private val debouncedSearchQuery = _searchQuery
+        .debounce(300L)
+        .stateIn(viewModelScope, SharingStarted.Lazily, "")
+
     // Job reference for cancelling previous statistics calculations
     private var statisticsJob: Job? = null
 
@@ -124,21 +139,33 @@ class AttendanceViewModel(
      * not on every selection/date change. This prevents expensive groupBy operations
      * on every recomposition with 75+ members.
      */
+    @OptIn(FlowPreview::class)
     val uiState: StateFlow<UiState> = combine(
         members.map { it.groupByCategory() }, // Group once when members change
         _selectedMembers,
         _currentDate,
-        _hideInfrequentMembers
-    ) { membersByCategory, selected, date, hideInfrequent ->
+        _hideInfrequentMembers,
+        debouncedSearchQuery // Use debounced query to prevent lag on rapid typing
+    ) { membersByCategory, selected, date, hideInfrequent, query ->
+        // Apply filters in sequence: infrequent → search
+        var filteredMembers = membersByCategory
+
         // Filter out infrequent members if toggle is enabled
-        val filteredMembers = if (hideInfrequent) {
-            membersByCategory.mapValues { (_, membersList) ->
+        if (hideInfrequent) {
+            filteredMembers = filteredMembers.mapValues { (_, membersList) ->
                 membersList.filter { member ->
                     member.getAttendancePercentage() >= 40.0 // Keep members with 40%+ attendance
                 }
             }.filterValues { it.isNotEmpty() } // Remove empty categories
-        } else {
-            membersByCategory
+        }
+
+        // Filter by search query if not blank
+        if (query.isNotBlank()) {
+            filteredMembers = filteredMembers.mapValues { (_, membersList) ->
+                membersList.filter { member ->
+                    member.name.contains(query, ignoreCase = true)
+                }
+            }.filterValues { it.isNotEmpty() } // Remove empty categories
         }
 
         UiState(
@@ -155,10 +182,15 @@ class AttendanceViewModel(
     )
 
     init {
-        // Load saved sort preference
+        // Load saved preferences
         viewModelScope.launch {
+            // Load sort preference
             preferencesRepository.statisticsSortPreference.first().let { savedSort ->
                 _memberStatisticsSortBy.value = savedSort
+            }
+            // Load hide infrequent members preference
+            preferencesRepository.hideInfrequentMembersFlow.first().let { savedHide ->
+                _hideInfrequentMembers.value = savedHide
             }
         }
 
@@ -240,9 +272,31 @@ class AttendanceViewModel(
     /**
      * Toggles the hide infrequent members filter.
      * When enabled, members with <40% attendance are hidden from the list.
+     * Persists the preference to DataStore for future sessions.
      */
     fun toggleHideInfrequentMembers() {
-        _hideInfrequentMembers.value = !_hideInfrequentMembers.value
+        val newValue = !_hideInfrequentMembers.value
+        _hideInfrequentMembers.value = newValue
+        viewModelScope.launch {
+            preferencesRepository.setHideInfrequentMembers(newValue)
+        }
+    }
+
+    /**
+     * Updates the search query for filtering members.
+     * Filters members whose name contains the query (case-insensitive).
+     *
+     * @param query The search query string
+     */
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
+    }
+
+    /**
+     * Clears the search query.
+     */
+    fun clearSearch() {
+        _searchQuery.value = ""
     }
 
     /**

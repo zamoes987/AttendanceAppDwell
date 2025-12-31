@@ -25,17 +25,17 @@ class PreferencesRepository(private val context: Context) {
 
     companion object {
         /**
-         * Default spreadsheet ID for the app owner (Dwell CC).
+         * Default spreadsheet ID for the app owner.
          * Other users will need to configure their own spreadsheet ID.
+         * TODO: Replace with your Google Sheets spreadsheet ID
          */
-        // TODO: Replace with your Google Sheets spreadsheet ID (see local-config.md)
         const val DEFAULT_SPREADSHEET_ID = "YOUR_SPREADSHEET_ID_HERE"
 
         /**
          * Email address of the app owner. Used for first-run detection.
          * If the signed-in user matches this email, the default spreadsheet is used automatically.
+         * TODO: Replace with your email address
          */
-        // TODO: Replace with your email address (see local-config.md)
         const val OWNER_EMAIL = "your-email@example.com"
 
         val SPREADSHEET_ID_KEY = stringPreferencesKey("spreadsheet_id")
@@ -43,6 +43,7 @@ class PreferencesRepository(private val context: Context) {
         val EVENING_NOTIFICATION = booleanPreferencesKey("evening_notification")
         private val STATISTICS_SORT_KEY = stringPreferencesKey("statistics_sort")
         private val SKIPPED_DATES_KEY = stringSetPreferencesKey("skipped_dates")
+        private val HIDE_INFREQUENT_KEY = booleanPreferencesKey("hide_infrequent_members")
     }
 
     /**
@@ -145,6 +146,26 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setStatisticsSortPreference(sort: MemberStatisticsSortBy) {
         context.dataStore.edit { preferences ->
             preferences[STATISTICS_SORT_KEY] = sort.name
+        }
+    }
+
+    /**
+     * Flow of hide infrequent members preference.
+     * When true, members with <40% attendance are hidden from the member list.
+     */
+    val hideInfrequentMembersFlow: Flow<Boolean> = context.dataStore.data
+        .map { preferences ->
+            preferences[HIDE_INFREQUENT_KEY] ?: false
+        }
+
+    /**
+     * Sets the hide infrequent members preference.
+     *
+     * @param hide Whether to hide infrequent members
+     */
+    suspend fun setHideInfrequentMembers(hide: Boolean) {
+        context.dataStore.edit { preferences ->
+            preferences[HIDE_INFREQUENT_KEY] = hide
         }
     }
 

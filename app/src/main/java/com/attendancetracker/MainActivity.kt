@@ -31,9 +31,12 @@ import com.google.android.gms.common.api.Scope
 import com.google.android.gms.common.ConnectionResult
 import com.google.android.gms.common.GoogleApiAvailability
 import com.google.api.services.sheets.v4.SheetsScopes
+import com.google.firebase.crashlytics.ktx.crashlytics
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 /**
  * Main activity for the Attendance Tracker app.
@@ -57,6 +60,11 @@ class MainActivity : FragmentActivity() {
     private var viewModel: AttendanceViewModel? = null
 
     companion object {
+        /**
+         * Request code for Google Sign-In.
+         * Using deprecated startActivityForResult due to Google Sign-In's
+         * 16-bit request code limitation with ActivityResultContracts.
+         */
         private const val RC_SIGN_IN = 9001
     }
 
@@ -87,10 +95,16 @@ class MainActivity : FragmentActivity() {
 
             googleSignInClient = GoogleSignIn.getClient(this, gso)
 
+            // Set Crashlytics custom keys for debugging
+            Firebase.crashlytics.setCustomKey("app_version", BuildConfig.VERSION_NAME)
+            Firebase.crashlytics.setCustomKey("app_version_code", BuildConfig.VERSION_CODE)
+
+            Timber.d("MainActivity initialized")
+
             // Check authentication state
             checkAuthenticationState()
         } catch (e: Exception) {
-            e.printStackTrace()
+            Timber.e(e, "Error initializing app")
             Toast.makeText(this, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
             showSignInScreen()
         }
@@ -110,12 +124,7 @@ class MainActivity : FragmentActivity() {
 
             if (storedEmail != null && (account == null || account.email != storedEmail)) {
                 // Account removed or changed - clear state and show sign-in screen
-                if (BuildConfig.DEBUG) {
-                    android.util.Log.d(
-                        "MainActivity",
-                        "Google account removed or changed. Stored: $storedEmail, Current: ${account?.email}"
-                    )
-                }
+                Timber.d("Google account removed or changed. Stored: $storedEmail, Current: ${account?.email}")
                 authManager.clearAuthState()
                 repository = null
                 viewModel = null
@@ -129,6 +138,10 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Handles the result from Google Sign-In.
+     * Using deprecated API due to Google Sign-In's 16-bit request code limitation.
+     */
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -152,37 +165,24 @@ class MainActivity : FragmentActivity() {
         val hasValidSession = authManager.isAuthenticated()
         val hasValidGoogleAccount = authManager.hasValidGoogleAccount()
 
-        if (BuildConfig.DEBUG) {
-            android.util.Log.d(
-                "MainActivity",
-                "Auth state - Session: $hasValidSession, GoogleAccount: $hasValidGoogleAccount"
-            )
-        }
+        Timber.d("Auth state - Session: $hasValidSession, GoogleAccount: $hasValidGoogleAccount")
 
         when {
             // User has valid session and Google account
             hasValidSession && hasValidGoogleAccount && account != null -> {
                 val email = account.email ?: authManager.getUserEmail()
                 if (email != null) {
-                    if (BuildConfig.DEBUG) {
-                        android.util.Log.d("MainActivity", "Valid session found")
-                    }
+                    Timber.d("Valid session found")
                     // Check if biometric is enabled
                     if (authManager.isBiometricEnabled() && canUseBiometric()) {
-                        if (BuildConfig.DEBUG) {
-                            android.util.Log.d("MainActivity", "Showing biometric prompt")
-                        }
+                        Timber.d("Showing biometric prompt")
                         showBiometricPrompt(email)
                     } else {
-                        if (BuildConfig.DEBUG) {
-                            android.util.Log.d("MainActivity", "Initializing app directly")
-                        }
+                        Timber.d("Initializing app directly")
                         initializeApp(email)
                     }
                 } else {
-                    if (BuildConfig.DEBUG) {
-                        android.util.Log.d("MainActivity", "No email found, showing sign-in screen")
-                    }
+                    Timber.d("No email found, showing sign-in screen")
                     showSignInScreen()
                 }
             }
@@ -190,24 +190,18 @@ class MainActivity : FragmentActivity() {
             hasValidGoogleAccount && account != null -> {
                 val email = account.email
                 if (email != null) {
-                    if (BuildConfig.DEBUG) {
-                        android.util.Log.d("MainActivity", "Restoring session")
-                    }
+                    Timber.d("Restoring session")
                     // Restore session
                     authManager.saveAuthState(email)
                     initializeApp(email)
                 } else {
-                    if (BuildConfig.DEBUG) {
-                        android.util.Log.d("MainActivity", "No email in expired session, showing sign-in screen")
-                    }
+                    Timber.d("No email in expired session, showing sign-in screen")
                     showSignInScreen()
                 }
             }
             // No valid authentication
             else -> {
-                if (BuildConfig.DEBUG) {
-                    android.util.Log.d("MainActivity", "No valid authentication, showing sign-in screen")
-                }
+                Timber.d("No valid authentication, showing sign-in screen")
                 showSignInScreen()
             }
         }
@@ -311,9 +305,7 @@ class MainActivity : FragmentActivity() {
                 // Check if user needs setup (first-run detection)
                 // Uses the class-level preferencesRepository (DataStore requires singleton)
                 if (preferencesRepository.needsSetup(email)) {
-                    if (BuildConfig.DEBUG) {
-                        android.util.Log.d("MainActivity", "New user detected, showing setup screen")
-                    }
+                    Timber.d("New user detected, showing setup screen")
                     showSetupScreen(email, preferencesRepository)
                     return@launch
                 }
@@ -326,9 +318,11 @@ class MainActivity : FragmentActivity() {
                     return@launch
                 }
 
-                if (BuildConfig.DEBUG) {
-                    android.util.Log.d("MainActivity", "Using spreadsheet ID: ${spreadsheetId.take(10)}...")
-                }
+                Timber.d("Using spreadsheet ID: ${spreadsheetId.take(10)}...")
+
+                // Set Crashlytics user context (anonymized)
+                Firebase.crashlytics.setUserId(email.hashCode().toString())
+                Firebase.crashlytics.setCustomKey("spreadsheet_configured", true)
 
                 // Initialize repository and ViewModel with the spreadsheet ID
                 repository = SheetsRepository(applicationContext, email, spreadsheetId, preferencesRepository)
@@ -346,14 +340,14 @@ class MainActivity : FragmentActivity() {
                                 delay(30 * 60 * 1000L) // 30 minutes
                                 authManager.refreshSession()
                             } catch (e: Exception) {
-                                android.util.Log.e("MainActivity", "Session refresh failed", e)
+                                Timber.e(e, "Session refresh failed")
                                 break // Exit loop on error
                             }
                         }
                     }
                 }
             } catch (e: Exception) {
-                e.printStackTrace()
+                Timber.e(e, "Error initializing app")
                 Toast.makeText(this@MainActivity, "Error initializing app: ${e.message}", Toast.LENGTH_LONG).show()
                 showSignInScreen()
             }
@@ -413,6 +407,7 @@ class MainActivity : FragmentActivity() {
      */
     private fun signOut() {
         try {
+            Timber.d("Signing out user")
             // Clear auth state
             authManager.clearAuthState()
 
@@ -424,13 +419,15 @@ class MainActivity : FragmentActivity() {
                 Toast.makeText(this, "Signed out successfully", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            Timber.e(e, "Error signing out")
             Toast.makeText(this, "Error signing out: ${e.message}", Toast.LENGTH_SHORT).show()
         }
     }
 
     /**
-     * Starts the Google Sign-In flow using startActivityForResult.
+     * Starts the Google Sign-In flow.
+     * Uses deprecated startActivityForResult due to Google Sign-In's
+     * 16-bit request code limitation with ActivityResultContracts.
      */
     @Suppress("DEPRECATION")
     private fun startSignIn() {
@@ -441,12 +438,9 @@ class MainActivity : FragmentActivity() {
         try {
             val signInIntent = googleSignInClient.signInIntent
             startActivityForResult(signInIntent, RC_SIGN_IN)
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d("MainActivity", "Sign-in intent launched with startActivityForResult")
-            }
+            Timber.d("Sign-in intent launched")
         } catch (e: Exception) {
-            e.printStackTrace()
-            android.util.Log.e("MainActivity", "Error starting sign-in", e)
+            Timber.e(e, "Error starting sign-in")
             Toast.makeText(this, "Error starting sign-in: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
@@ -456,18 +450,14 @@ class MainActivity : FragmentActivity() {
      */
     private fun handleSignInResult(task: com.google.android.gms.tasks.Task<GoogleSignInAccount>) {
         try {
-            if (BuildConfig.DEBUG) {
-                android.util.Log.d("MainActivity", "Handling sign-in result")
-            }
+            Timber.d("Handling sign-in result")
             val account = task.getResult(ApiException::class.java)
             account?.email?.let { email ->
-                if (BuildConfig.DEBUG) {
-                    android.util.Log.d("MainActivity", "Sign-in successful")
-                }
+                Timber.d("Sign-in successful")
 
                 // Check if we have the required scope
                 if (!hasRequiredScopes(account)) {
-                    android.util.Log.e("MainActivity", "Missing required Google Sheets scope")
+                    Timber.e("Missing required Google Sheets scope")
                     Toast.makeText(
                         this,
                         "Missing Google Sheets permission. Please grant access.",
@@ -482,14 +472,13 @@ class MainActivity : FragmentActivity() {
                 initializeApp(email)
                 Toast.makeText(this, "Signed in successfully", Toast.LENGTH_SHORT).show()
             } ?: run {
-                android.util.Log.e("MainActivity", "Sign-in failed: No account information")
+                Timber.e("Sign-in failed: No account information")
                 Toast.makeText(this, "Sign-in failed: No account information", Toast.LENGTH_SHORT).show()
                 showSignInScreen()
             }
         } catch (e: ApiException) {
             // Sign-in failed
-            e.printStackTrace()
-            android.util.Log.e("MainActivity", "Sign-in ApiException: ${e.statusCode} - ${e.message}")
+            Timber.e(e, "Sign-in ApiException: ${e.statusCode}")
             val errorMessage = when (e.statusCode) {
                 12501 -> "Sign-in cancelled"
                 12500 -> "Sign-in error. Please try again"
@@ -500,8 +489,7 @@ class MainActivity : FragmentActivity() {
             Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
             showSignInScreen()
         } catch (e: Exception) {
-            e.printStackTrace()
-            android.util.Log.e("MainActivity", "Sign-in unexpected error: ${e.message}", e)
+            Timber.e(e, "Sign-in unexpected error")
             Toast.makeText(this, "Unexpected error: ${e.message}", Toast.LENGTH_LONG).show()
             showSignInScreen()
         }

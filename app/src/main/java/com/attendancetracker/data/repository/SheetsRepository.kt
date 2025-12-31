@@ -108,6 +108,9 @@ class SheetsRepository(
         _error.value = null
 
         return try {
+            // Initialize year tab first - detects best available tab (2026 fix)
+            sheetsService.initializeYearTab()
+
             // Load members first
             val membersResult = sheetsService.readMembers()
             if (membersResult.isFailure) {
@@ -539,6 +542,32 @@ class SheetsRepository(
      */
     fun clearError() {
         _error.value = null
+    }
+
+    // ========== YEAR TAB METHODS ==========
+
+    /**
+     * Gets the currently selected year tab.
+     *
+     * @return The year tab name (e.g., "2025")
+     */
+    fun getCurrentYearTab(): String = sheetsService.getYearTab()
+
+    /**
+     * Gets all available year tabs from the spreadsheet.
+     *
+     * @return Result containing list of tab names, or failure with exception
+     */
+    suspend fun getAvailableTabs(): Result<List<String>> = sheetsService.getAvailableTabs()
+
+    /**
+     * Manually sets the year tab to use.
+     * Useful for settings override when user wants to view a different year.
+     *
+     * @param yearTab The year tab name to use (e.g., "2025")
+     */
+    fun setYearTab(yearTab: String) {
+        sheetsService.setYearTab(yearTab)
     }
 
     // ========== SKIPPED DATES METHODS ==========
